@@ -5,9 +5,9 @@
 > 最近更新：2026-11-21
 > 仓库：`wwxst/skill`
 > 当前开发分支：`feat/auto-video-production`
-> 最近一次代码与 CI 验证提交：`a1f17df05316f5d832767866e3811078a6d95214`
-> 交接文档提交：`91bb4d4b3631d1a7264a2b56e099b19fa5140f91`
-> README 交接入口提交：`8fb80c2fe39f97ba13defda8e4b09369d08620a2`
+> 最近一次代码审查基准：`2cc454caed82e2b875c4f39f5ed5a0efd3edfdbf`
+> 代码审查报告提交：`ea63d684ec504d1c34969846da0a0683d38342d6`
+> README 审查报告入口提交：`abea1c12f63d1901fb263bbb7f07f7d2cdf96cd8`
 > 续作时必须重新查询远程分支 HEAD；本文不把历史 SHA 当作永远最新的 HEAD。
 
 ## 1. 项目目标
@@ -31,9 +31,9 @@
 - 仓库： https://github.com/wwxst/skill
 - 当前分支：`feat/auto-video-production`
 - 基准：从 `main` 分支创建；当前与 `main` 的共同基准提交为 `1bf6014fc218de6f7a5d1fbdd6781dbda3b69dcb`。
-- 最近一次代码与自动化测试验证点为 `a1f17df05316f5d832767866e3811078a6d95214`。
-- 随后又新增两个文档提交：`91bb4d4b3631d1a7264a2b56e099b19fa5140f91`（本交接文档）和 `8fb80c2fe39f97ba13defda8e4b09369d08620a2`（README 增加交接文档入口）。
-- 这三个提交及此前代码提交均已推送到远程开发分支。最新 HEAD、ahead/behind 数量以续作时重新查询 GitHub 的结果为准。
+- 最近一次代码与自动化测试验证点为 `2cc454caed82e2b875c4f39f5ed5a0efd3edfdbf`，GitHub Actions 运行成功。
+- 随后新增代码审查报告 `ea63d684ec504d1c34969846da0a0683d38342d6`，以及 README 报告入口 `abea1c12f63d1901fb263bbb7f07f7d2cdf96cd8`。
+- 本交接文档在本轮审查后同步更新；续作时重新核对远程 HEAD、ahead/behind 数量和最新 CI。
 - `main` 未被本轮修改；尚未创建 PR，尚未合并。
 
 不要把当前开发分支误认为已经进入 `main`。
@@ -87,18 +87,18 @@ GitHub Actions 已配置工作流：
 
 - 文件：`.github/workflows/video-studio.yml`
 - Workflow：Video Studio tests
-- 最近一次代码与测试提交的已完成运行：[#44853366170](https://github.com/wwxst/skill/actions/runs/44853366170)
-- 触发提交：`a1f17df05316f5d832767866e3811078a6d95214`
+- 最近一次代码和交接文档验证运行：[#44854271454](https://github.com/wwxst/skill/actions/runs/44854271454)
+- 触发提交：`2cc454caed82e2b875c4f39f5ed5a0efd3edfdbf`
 - 结果：**success**
-- 实际完成步骤包括安装 Node.js、安装 FFmpeg、运行插件测试。
-- 后续交接文档和 README 文档提交也会触发 CI；新对话必须检查最新一次运行，不能把旧的成功结果当成最新提交的验证结果。
+- Node.js 安装、FFmpeg 安装、插件测试均成功。
+- 代码审查报告及 README 入口提交会再次触发 CI；续作时必须检查最新运行，不能把旧成功结果当成最新提交的验证结果。
 
 新增的生产集成测试会生成两张测试图片，应用内置模板，执行真实 MP4 渲染，检查画面尺寸、时长和音轨，然后保存模板并在另一个项目中再次应用。
 
 注意：
 - CI 通过表示仓库中的自动化测试在 GitHub Actions 环境通过。
 - 尚不能据此声称已经在用户本机的 Windows / DeepSeek Harness 环境完成安装验收。
-- 尚未完成独立代码 Review。
+- 尚未完成用户本机 Windows / DeepSeek Harness 安装验收。
 
 ## 5. 当前明确不支持的能力
 
@@ -143,17 +143,16 @@ GitHub Actions 已配置工作流：
 
 ## 7. 当前阻塞 / 待办
 
-1. **代码 Review 尚未开始。** 上一轮对话提出先做单 Agent 完整 Review；当前环境没有真实独立子 Agent 创建能力，因此不能声称已完成多 Agent Review。用户尚未明确同意降级为单 Agent Review。
-2. Review 前先核对最新远程 HEAD、分支 diff 和 CI 状态，不要依赖旧对话中的状态。
-3. 用户同意后，进行只读代码 Review，重点检查：
-   - FFmpeg filter graph、xfade/acrossfade 时间偏移及音视频时长同步。
-   - 图片 zoompan 的画面边界、帧率和输出时长。
-   - ASS 字幕/文字叠加的路径转义、文字转义、字体和 libass 兼容性。
-   - 模板保存/读取/应用、素材槽位校验和 revision 并发保护。
-   - 异常、取消、临时文件清理、旧项目数据兼容性。
-   - 测试是否覆盖关键边界和失败路径。
-4. 若发现问题，先列出证据、影响和修复建议；只有用户明确要求修复后才修改。
-5. Review 和必要修复完成后，再向用户汇报。是否创建 PR、合并到 `main`，等待用户明确决定。
+1. **代码 Review 已完成。** 用户同意采用单 Agent 完整审查；本次没有创建或声称创建独立子 Agent。
+2. 审查结论：**PASS WITH WARNINGS**，没有发现 P1 阻断项；发现 4 项 P2 和 1 项 P3。
+3. 完整报告：[`docs/CODE_REVIEW_2026-11-21.md`](CODE_REVIEW_2026-11-21.md)。主要问题：
+   - 连续转场没有检查中间片段两侧转场总时长，可能形成重叠三层混合。
+   - 环境检查只确认 FFmpeg/FFprobe 能启动，没有验证 libx264、libass、xfade 等实际能力。
+   - 保存模板时记录 output 设置，但应用模板没有恢复这些设置。
+   - 集成测试没有通过图像像素验证真实镜头运动和文字渲染。
+   - 生产集成测试固定占用 4174 端口。
+4. 本次审查为只读，没有修改业务代码；当前没有 PR，也没有合并 main。
+5. **下一步等待用户决定是否修复审查报告中的问题。** 未经用户明确同意，不修改业务代码、不合并 main。
 
 ## 8. 新对话继续工作的要求
 
@@ -174,7 +173,7 @@ GitHub Actions 已配置工作流：
 
 ### 可直接用于新对话的继续指令
 
-> 继续开发 `wwxst/skill` 仓库的 Video Studio 插件。先读取 `plugins/dsh-video-studio/docs/DEVELOPMENT_HANDOFF.md`、插件 README、架构文档和 Roadmap，再核对 GitHub 远程分支、diff 和 CI。当前开发分支是 `feat/auto-video-production`，0.2.0「模板与动态画面」已实现，GitHub Actions 已通过；尚未完成代码 Review、尚未创建 PR、尚未合并 main。先向我汇报当前状态和 Review 方案，不要假设旧状态仍然最新。未经我明确同意，不要合并 main 或发布。
+> 继续开发 `wwxst/skill` 仓库的 Video Studio 插件。先读取 `plugins/dsh-video-studio/docs/DEVELOPMENT_HANDOFF.md`、插件 README、架构文档、Roadmap 和 `docs/CODE_REVIEW_2026-11-21.md`，再核对 GitHub 远程分支、diff 和最新 CI。0.2.0「模板与动态画面」已实现；单 Agent Review 已完成，结论 PASS WITH WARNINGS，发现 4 项 P2 和 1 项 P3，尚未修复。当前没有 PR，也没有合并 main。先汇报最新状态，并等待我决定是否修复审查问题。未经我明确同意，不要修改业务代码或合并 main。
 
 ---
 
