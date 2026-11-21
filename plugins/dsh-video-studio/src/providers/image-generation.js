@@ -34,8 +34,16 @@ export function createImageGenerationProvider(config = {}) {
   async function generate({ prompt, size = '1024x1536', quality = 'medium', outputFormat = 'png', signal } = {}) {
     if (!apiKey) throw new VideoStudioError('尚未配置图片生成 API Key。请设置 DSH_VIDEO_STUDIO_IMAGE_API_KEY。', 'IMAGE_PROVIDER_NOT_CONFIGURED');
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.trim().length > 4000) throw new VideoStudioError('图片生成提示词不能为空，且不能超过 4000 个字符。', 'INVALID_ARGUMENT');
-    if (!['1024x1024', '1024x1536', '1536x1024'].includes(size)) throw new VideoStudioError('图片尺寸只支持 1024x1024、1024x1536、1536x1024。', 'INVALID_ARGUMENT');
-    if (!['low', 'medium', 'high', 'auto'].includes(quality)) throw new VideoStudioError('图片质量只支持 low、medium、high、auto。', 'INVALID_ARGUMENT');
+    const dimensions = String(size);
+    if (dimensions !== 'auto') {
+      const match = /^(\\d{3,4})x(\\d{3,4})$/.exec(dimensions);
+      const width = match ? Number(match[1]) : 0;
+      const height = match ? Number(match[2]) : 0;
+      if (!match || width < 256 || height < 256 || width > 3840 || height > 3840 || width % 16 !== 0 || height % 16 !== 0 || width / height < 1 / 3 || width / height > 3) {
+        throw new VideoStudioError('图片尺寸必须为 auto，或 256–3840 之间、16 的倍数，宽高比在 1:3 到 3:1 之间，例如 1024x1824。', 'INVALID_ARGUMENT');
+      }
+    }
+    if (!['low', 'medium', 'high', 'xhigh', 'max', 'auto'].includes(quality)) throw new VideoStudioError('图片质量只支持 low、medium、high、xhigh、max、auto。', 'INVALID_ARGUMENT');
     if (!['png', 'jpeg', 'webp'].includes(outputFormat)) throw new VideoStudioError('图片格式只支持 png、jpeg、webp。', 'INVALID_ARGUMENT');
 
     const timeout = AbortSignal.timeout(180000);

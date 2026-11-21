@@ -19,3 +19,18 @@ test('records actual performance metrics and summarizes by hook type', async (t)
   assert.equal(summary.groups[0].engagementRate, 0.1533);
   assert.equal(summary.groups[0].followRate, 0.0333);
 });
+
+test('stores TikTok source and metric availability metadata', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-analytics-source-test-'));
+  const store = createPerformanceStore(root);
+  await store.initialize();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const record = await store.record({
+    projectId: 'vs_123456789abc', platformVideoId: '1234567890123456789',
+    source: 'tiktok-display-api', availableMetrics: ['views', 'likes', 'comments', 'shares'],
+    views: 1000, likes: 100, comments: 10, shares: 5,
+  });
+  assert.equal(record.source, 'tiktok-display-api');
+  assert.equal(record.platformVideoId, '1234567890123456789');
+  assert.deepEqual(record.availableMetrics, ['views', 'likes', 'comments', 'shares']);
+});

@@ -188,7 +188,7 @@ export class PixabayProvider {
     if (!buffer.length || buffer.length > MAX_DOWNLOAD_BYTES) throw new VideoStudioError('下载素材为空或超过 100MB。', 'REMOTE_MEDIA_TOO_LARGE');
     const mimeType = response.headers.get('content-type') || '';
     const extension = extensionFromMime(mimeType, url.toString());
-    if (mediaType === 'image' && !extension.startsWith('.')) throw new VideoStudioError('下载内容不是受支持的图片。', 'UNSUPPORTED_REMOTE_MEDIA');
+    if (mediaType === 'image' && !['.jpg', '.png', '.webp'].includes(extension)) throw new VideoStudioError('下载内容不是受支持的图片。', 'UNSUPPORTED_REMOTE_MEDIA');
     if (mediaType === 'video' && !['.mp4', '.webm'].includes(extension)) throw new VideoStudioError('下载内容不是受支持的视频。', 'UNSUPPORTED_REMOTE_MEDIA');
     const normalized = mediaType === 'video' ? videoResult(hit) : imageResult(hit);
     return {

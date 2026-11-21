@@ -5,6 +5,7 @@ import path from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { PixabayProvider } from '../src/providers/pixabay.js';
 import { createImageGenerationProvider } from '../src/providers/image-generation.js';
+import { TikTokProvider } from '../src/providers/tiktok.js';
 
 const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(16, 1)]);
 const hit = {
@@ -95,4 +96,68 @@ test('OpenAI-compatible image generation validates returned PNG bytes', async ()
 test('image generation fails clearly when API credentials are missing', async () => {
   const provider = createImageGenerationProvider({ imageApiKey: '' });
   await assert.rejects(provider.generate({ prompt: 'A test image' }), (error) => error.code === 'IMAGE_PROVIDER_NOT_CONFIGURED');
+});
+
+test('TikTok Display API paginates and returns official public-video metrics', async () => {
+  const calls = [];
+  const provider = new TikTokProvider({
+    accessToken: 'access-token',
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), body: JSON.parse(options.body), auth: options.headers.authorization });
+      const page = calls.length;
+      return new Response(JSON.stringify({
+        data: {
+          videos: [{
+            id: String(1234567890123456789 + page), create_time: 1700000000,
+            share_url: 'https://www.tiktok.com/@creator/video/1234567890123456789',
+            title: 'A real TikTok post', view_count: 1200, like_count: 120, comment_count: 12, share_count: 6,
+          }],
+          cursor: page, has_more: page === 1,
+        },
+        error: { code: 'ok', message: '' },
+      }), { status: 200 });
+    },
+  });
+  const result = await provider.listVideos({ limit: 2 });
+  assert.equal(result.count, 2);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].auth, 'Bearer access-token');
+  assert.equal(calls[1].body.cursor, 1);
+  assert.equal(result.videos[0].metrics.views, 1200);
+  assert.deepEqual(result.metricsUnavailable, ['saves', 'profileVisits', 'follows', 'conversions']);
+});
+
+test('TikTok provider rotates refresh tokens and persists the replacement', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-tiktok-token-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const provider = new TikTokProvider({
+    dataDir: root, clientKey: 'client-key', clientSecret: 'client-secret', refreshToken: 'old-refresh',
+    fetchImpl: async (url, options) => {
+      assert.equal(String(url), 'https://open.tiktokapis.com/v2/oauth/token/');
+      assert.equal(options.body.get('refresh_token'), 'old-refresh');
+      return new Response(JSON.stringify({
+        access_token: 'new-access', refresh_token: 'rotated-refresh',
+        expires_in: 7200, refresh_expires_in: 15552000, open_id: 'open-id', scope: 'user.info.basic,video.list',
+      }), { status: 200 });
+    },
+  });
+  assert.equal(await provider.getAccessToken(), 'new-access');
+  assert.equal(provider.refreshToken, 'rotated-refresh');
+  const { readFile } = await import('node:fs/promises');
+  const saved = JSON.parse(await readFile(path.join(root, 'integrations', 'tiktok-token.json'), 'utf8'));
+  assert.equal(saved.refreshToken, 'rotated-refresh');
+});
+
+test('image generation accepts custom portrait sizes suitable for vertical video', async () => {
+  let sent;
+  const provider = createImageGenerationProvider({
+    imageApiKey: 'test-key', imageApiBaseUrl: 'https://images.example/v1', imageModel: 'gpt-image-2.6-flare',
+    fetchImpl: async (_url, options) => {
+      sent = JSON.parse(options.body);
+      return new Response(JSON.stringify({ data: [{ b64_json: png.toString('base64') }] }), { status: 200 });
+    },
+  });
+  await provider.generate({ prompt: 'Vertical cinematic city scene', size: '1024x1824', quality: 'high' });
+  assert.equal(sent.size, '1024x1824');
+  await assert.rejects(provider.generate({ prompt: 'bad', size: '1025x1824' }), (error) => error.code === 'INVALID_ARGUMENT');
 });
