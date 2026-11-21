@@ -145,7 +145,7 @@ test('TikTok provider rotates refresh tokens and persists the replacement', asyn
   assert.equal(provider.refreshToken, 'rotated-refresh');
   const { readFile } = await import('node:fs/promises');
   const saved = JSON.parse(await readFile(path.join(root, 'integrations', 'tiktok-token.json'), 'utf8'));
-  assert.equal(saved.refreshToken, 'rotated-refresh');
+  assert.equal(saved.accounts.default.refreshToken, 'rotated-refresh');
 });
 
 test('image generation accepts custom portrait sizes suitable for vertical video', async () => {
