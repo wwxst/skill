@@ -34,7 +34,7 @@
 - 最近一次代码与自动化测试验证点为 `2cc454caed82e2b875c4f39f5ed5a0efd3edfdbf`，GitHub Actions 运行成功。
 - 随后新增代码审查报告 `ea63d684ec504d1c34969846da0a0683d38342d6`，以及 README 报告入口 `abea1c12f63d1901fb263bbb7f07f7d2cdf96cd8`。
 - 本交接文档在本轮审查后同步更新；续作时重新核对远程 HEAD、ahead/behind 数量和最新 CI。
-- `main` 未被本轮修改；尚未创建 PR，尚未合并。
+- `main` 未被本轮修改；已创建 Draft PR [#1](https://github.com/wwxst/skill/pull/1)，尚未合并。
 
 不要把当前开发分支误认为已经进入 `main`。
 
@@ -151,8 +151,8 @@ GitHub Actions 已配置工作流：
    - 保存模板时记录 output 设置，但应用模板没有恢复这些设置。
    - 集成测试没有通过图像像素验证真实镜头运动和文字渲染。
    - 生产集成测试固定占用 4174 端口。
-4. 本次审查为只读，没有修改业务代码；当前没有 PR，也没有合并 main。
-5. **下一步等待用户决定是否修复审查报告中的问题。** 未经用户明确同意，不修改业务代码、不合并 main。
+4. 本次审查为只读，没有修改业务代码；已创建 Draft PR [#1](https://github.com/wwxst/skill/pull/1) 供用户检查，未合并 main。
+5. **下一步等待用户决定是否修复审查报告中的问题。** 修复前先取得用户确认；未经用户明确同意，不修改业务代码、不合并 main。
 
 ## 8. 新对话继续工作的要求
 
@@ -173,7 +173,7 @@ GitHub Actions 已配置工作流：
 
 ### 可直接用于新对话的继续指令
 
-> 继续开发 `wwxst/skill` 仓库的 Video Studio 插件。先读取 `plugins/dsh-video-studio/docs/DEVELOPMENT_HANDOFF.md`、插件 README、架构文档、Roadmap 和 `docs/CODE_REVIEW_2026-11-21.md`，再核对 GitHub 远程分支、diff 和最新 CI。0.2.0「模板与动态画面」已实现；单 Agent Review 已完成，结论 PASS WITH WARNINGS，发现 4 项 P2 和 1 项 P3，尚未修复。当前没有 PR，也没有合并 main。先汇报最新状态，并等待我决定是否修复审查问题。未经我明确同意，不要修改业务代码或合并 main。
+> 继续开发 `wwxst/skill` 仓库的 Video Studio 插件。先读取 `plugins/dsh-video-studio/docs/DEVELOPMENT_HANDOFF.md`、插件 README、架构文档、Roadmap 和 `docs/CODE_REVIEW_2026-11-21.md`，再核对 GitHub 远程分支、diff 和最新 CI。0.2.0「模板与动态画面」已实现；单 Agent Review 已完成，结论 PASS WITH WARNINGS，发现 4 项 P2 和 1 项 P3，尚未修复。Draft PR [#1](https://github.com/wwxst/skill/pull/1) 已创建，尚未合并 main。先汇报最新状态，并等待我决定是否修复审查问题。未经我明确同意，不要修改业务代码或合并 main。
 
 ---
 
