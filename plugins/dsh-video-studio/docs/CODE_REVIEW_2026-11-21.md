@@ -1,5 +1,7 @@
 # Video Studio 0.2.0 单 Agent 代码审查报告
 
+> 本文记录首次审查基线。经用户批准修复后的复审结果见 [CODE_REVIEW_RECHECK_2026-11-21.md](CODE_REVIEW_RECHECK_2026-11-21.md)。
+
 - 审查日期：2026-11-21
 - 仓库：`wwxst/skill`
 - 审查分支：`feat/auto-video-production`
@@ -161,26 +163,20 @@ CI 成功说明当前自动化测试在 GitHub Actions 环境通过，不代表�
 - 检查文字叠加后的画面像素或生成帧。
 - 增加多片段、混合转场和音频同步测试。
 
-### Finding 5 — P3：生产集成测试固定使用 4174 端口
+### 原 Finding 5 — P3：固定端口冲突判断经复核撤销（误判）
 
 位置：
 
 - `plugins/dsh-video-studio/tests/production.test.js:37`
+- `plugins/dsh-video-studio/index.js`
 
-现状：
+复核后确认：
 
-`createEngine` 固定使用 `port: 4174`。
+- `createEngine()` 本身不会启动 HTTP 工作台服务，只会把传入的 port 用于生成 status 返回的 workbenchUrl。
+- HTTP 服务是在 `index.js` 的 `apply()` 中通过 `startServer()` 启动的。
+- `production.test.js` 直接调用 `createEngine()`，没有启动 HTTP 服务，也就没有绑定 4174 端口。
 
-而 `plugins/dsh-video-studio/tests/plugin.test.js` 已经使用动态空闲端口。
-
-影响：
-
-- 如果本机已经运行 Video Studio，执行 `npm test` 可能因端口被占用而失败。
-- CI 环境通常没有这个问题，但开发者本机容易遇到。
-
-建议：
-
-- 复用 plugin.test.js 的 freePort() 方法，为生产集成测试分配动态端口。
+因此，原先“本机已有工作台时会端口冲突”的判断不成立。删除测试中显式的 `port: 4174` 参数只是清理无用配置，不是修复端口冲突。该项从问题清单中撤销。
 
 ## 3. 已确认正常的部分
 
@@ -203,8 +199,8 @@ CI 成功说明当前自动化测试在 GitHub Actions 环境通过，不代表�
 **PASS WITH WARNINGS**
 
 - P1 阻断问题：本次未发现。
-- P2 中等级问题：4 项。
-- P3 低等级问题：1 项。
+- P2 中等级问题：4 项（后续修复见复审报告）。
+- P3 低等级问题：0 项（原端口问题已复核撤销）。
 
 当前实现的基础链路可以在 CI 环境中运行，模板应用、渲染、保存和复用的主流程已通过集成测试。
 
@@ -212,16 +208,7 @@ CI 成功说明当前自动化测试在 GitHub Actions 环境通过，不代表�
 
 ## 5. 后续动作
 
-本次只完成审查，没有修改业务代码。
-
-建议顺序：
-
-1. 先由用户确认是否修复上述 4 项 P2 和 1 项 P3。
-2. 修复后补齐对应测试。
-3. 再运行完整 GitHub Actions。
-4. 复核最新 diff。
-5. 创建或更新 PR 供用户检查。
-6. 未经用户明确批准，不合并 main。
+本报告记录首次只读审查结论。用户随后批准修复，已处理 4 项 P2 并补齐测试；原 P3 固定端口问题经代码路径复核后撤销。具体修改、测试结果和复审结论见 [CODE_REVIEW_RECHECK_2026-11-21.md](CODE_REVIEW_RECHECK_2026-11-21.md)。Draft PR [#1](https://github.com/wwxst/skill/pull/1) 已更新，尚未合并 main。
 
 ---
 

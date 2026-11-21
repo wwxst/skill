@@ -5,9 +5,10 @@
 > 最近更新：2026-11-21
 > 仓库：`wwxst/skill`
 > 当前开发分支：`feat/auto-video-production`
-> 最近一次代码审查基准：`2cc454caed82e2b875c4f39f5ed5a0efd3edfdbf`
-> 代码审查报告提交：`ea63d684ec504d1c34969846da0a0683d38342d6`
-> README 审查报告入口提交：`abea1c12f63d1901fb263bbb7f07f7d2cdf96cd8`
+> 最近一次业务修复与测试提交：`6aba5eb3a72320b1519b8f8d0a639630d155a8ec`
+> 初审报告：`docs/CODE_REVIEW_2026-11-21.md`
+> 修复复审报告：`docs/CODE_REVIEW_RECHECK_2026-11-21.md`
+> Draft PR：[#1](https://github.com/wwxst/skill/pull/1)
 > 续作时必须重新查询远程分支 HEAD；本文不把历史 SHA 当作永远最新的 HEAD。
 
 ## 1. 项目目标
@@ -31,10 +32,10 @@
 - 仓库： https://github.com/wwxst/skill
 - 当前分支：`feat/auto-video-production`
 - 基准：从 `main` 分支创建；当前与 `main` 的共同基准提交为 `1bf6014fc218de6f7a5d1fbdd6781dbda3b69dcb`。
-- 最近一次代码与自动化测试验证点为 `2cc454caed82e2b875c4f39f5ed5a0efd3edfdbf`，GitHub Actions 运行成功。
-- 随后新增代码审查报告 `ea63d684ec504d1c34969846da0a0683d38342d6`，以及 README 报告入口 `abea1c12f63d1901fb263bbb7f07f7d2cdf96cd8`。
-- 本交接文档在本轮审查后同步更新；续作时重新核对远程 HEAD、ahead/behind 数量和最新 CI。
-- `main` 未被本轮修改；已创建 Draft PR [#1](https://github.com/wwxst/skill/pull/1)，尚未合并。
+- 最近一次业务修复与测试提交为 `6aba5eb3a72320b1519b8f8d0a639630d155a8ec`。
+- 本轮在原始 4 项 P2 发现上完成修复，并补充测试；原报告中的端口冲突 P3 经复核确认是误判，已撤销。
+- 修复复审报告：[`docs/CODE_REVIEW_RECHECK_2026-11-21.md`](CODE_REVIEW_RECHECK_2026-11-21.md)。
+- `main` 未被修改；Draft PR [#1](https://github.com/wwxst/skill/pull/1) 已更新，尚未合并。续作时重新核对远程 HEAD、ahead/behind 数量和最新 CI。
 
 不要把当前开发分支误认为已经进入 `main`。
 
@@ -62,6 +63,9 @@
 - 新增内置「电影感图片转场」模板，支持 2–12 张图片。
 - 支持将当前图片时间线保存为 JSON 模板，并在其他项目复用。
 - 对镜头运动、转场、文字叠加参数做统一校验。
+- 相邻片段两侧的转场时长总和不得超过中间片段时长，避免转场重叠。
+- 启动状态会实际探测 libx264、libass、xfade、zoompan、acrossfade、amix 等关键能力，并列出缺失依赖。
+- 保存模板记录参考画布高度；应用到不同分辨率项目时按目标画布高度缩放文字字号，不覆盖目标项目的画幅、分辨率和 FPS。
 - 更新 Harness 工具定义和系统提示，引导 AI 优先查看和应用模板。
 
 新增工具：
@@ -87,11 +91,12 @@ GitHub Actions 已配置工作流：
 
 - 文件：`.github/workflows/video-studio.yml`
 - Workflow：Video Studio tests
-- 最近一次代码和交接文档验证运行：[#44854271454](https://github.com/wwxst/skill/actions/runs/44854271454)
-- 触发提交：`2cc454caed82e2b875c4f39f5ed5a0efd3edfdbf`
-- 结果：**success**
-- Node.js 安装、FFmpeg 安装、插件测试均成功。
-- 代码审查报告及 README 入口提交会再次触发 CI；续作时必须检查最新运行，不能把旧成功结果当成最新提交的验证结果。
+- 修复代码与测试提交：`6aba5eb3a72320b1519b8f8d0a639630d155a8ec`
+- GitHub Actions：[运行 #44859388937](https://github.com/wwxst/skill/actions/runs/44859388937) — **success**
+- GitHub Actions：[运行 #44859393540](https://github.com/wwxst/skill/actions/runs/44859393540) — **success**
+- 两次运行均完成 Node.js 安装、FFmpeg 安装和 `npm test`。
+- 测试结果：**9 passed / 0 failed**，包含真实 MP4 渲染、zoompan 画面变化、ASS 文字像素验证、FFmpeg 能力探测、连续转场边界和跨分辨率模板复用。
+- 仍未完成用户本机 Windows / DeepSeek Harness 安装验收。续作时检查最新 CI。
 
 新增的生产集成测试会生成两张测试图片，应用内置模板，执行真实 MP4 渲染，检查画面尺寸、时长和音轨，然后保存模板并在另一个项目中再次应用。
 
@@ -143,16 +148,16 @@ GitHub Actions 已配置工作流：
 
 ## 7. 当前阻塞 / 待办
 
-1. **代码 Review 已完成。** 用户同意采用单 Agent 完整审查；本次没有创建或声称创建独立子 Agent。
-2. 审查结论：**PASS WITH WARNINGS**，没有发现 P1 阻断项；发现 4 项 P2 和 1 项 P3。
-3. 完整报告：[`docs/CODE_REVIEW_2026-11-21.md`](CODE_REVIEW_2026-11-21.md)。主要问题：
-   - 连续转场没有检查中间片段两侧转场总时长，可能形成重叠三层混合。
-   - 环境检查只确认 FFmpeg/FFprobe 能启动，没有验证 libx264、libass、xfade 等实际能力。
-   - 保存模板时记录 output 设置，但应用模板没有恢复这些设置。
-   - 集成测试没有通过图像像素验证真实镜头运动和文字渲染。
-   - 生产集成测试固定占用 4174 端口。
-4. 本次审查为只读，没有修改业务代码；已创建 Draft PR [#1](https://github.com/wwxst/skill/pull/1) 供用户检查，未合并 main。
-5. **下一步等待用户决定是否修复审查报告中的问题。** 修复前先取得用户确认；未经用户明确同意，不修改业务代码、不合并 main。
+1. **单 Agent 初审和修复复审均已完成。** 没有创建或声称创建独立子 Agent。
+2. 初审报告见 [`docs/CODE_REVIEW_2026-11-21.md`](CODE_REVIEW_2026-11-21.md)；修复复审见 [`docs/CODE_REVIEW_RECHECK_2026-11-21.md`](CODE_REVIEW_RECHECK_2026-11-21.md)。
+3. 初审的 4 项 P2 已修复并通过测试：
+   - 连续转场重叠校验。
+   - FFmpeg 编码器和滤镜能力探测。
+   - 模板只复用时间线样式，保留目标画布并按高度缩放字号，同时兼容旧模板。
+   - 使用实际输出帧验证镜头运动和文字渲染。
+4. 初审中的固定端口 P3 经复核撤销：生产集成测试直接创建 Engine，并不启动 HTTP 工作台服务，不会占用 4174 端口。
+5. 最新修复代码提交 `6aba5eb3a72320b1519b8f8d0a639630d155a8ec` 的 CI 两次均成功，9 项测试全部通过。用户本机 Windows / DeepSeek Harness 验收仍待完成。
+6. Draft PR [#1](https://github.com/wwxst/skill/pull/1) 已更新，未合并 main。下一步等待用户检查 PR；未经用户明确批准，不合并 main。
 
 ## 8. 新对话继续工作的要求
 
@@ -173,7 +178,7 @@ GitHub Actions 已配置工作流：
 
 ### 可直接用于新对话的继续指令
 
-> 继续开发 `wwxst/skill` 仓库的 Video Studio 插件。先读取 `plugins/dsh-video-studio/docs/DEVELOPMENT_HANDOFF.md`、插件 README、架构文档、Roadmap 和 `docs/CODE_REVIEW_2026-11-21.md`，再核对 GitHub 远程分支、diff 和最新 CI。0.2.0「模板与动态画面」已实现；单 Agent Review 已完成，结论 PASS WITH WARNINGS，发现 4 项 P2 和 1 项 P3，尚未修复。Draft PR [#1](https://github.com/wwxst/skill/pull/1) 已创建，尚未合并 main。先汇报最新状态，并等待我决定是否修复审查问题。未经我明确同意，不要修改业务代码或合并 main。
+> 继续开发 `wwxst/skill` 仓库的 Video Studio 插件。先读取 `plugins/dsh-video-studio/docs/DEVELOPMENT_HANDOFF.md`、插件 README、架构文档、Roadmap、`docs/CODE_REVIEW_2026-11-21.md` 和 `docs/CODE_REVIEW_RECHECK_2026-11-21.md`，再核对 GitHub 远程分支、diff 和最新 CI。0.2.0「模板与动态画面」已实现；初审发现的 4 项 P2 已修复，原 P3 端口冲突判断已撤销；最新 CI 9 项测试全部通过。Draft PR [#1](https://github.com/wwxst/skill/pull/1) 已更新，尚未合并 main。先汇报最新状态，等待用户检查 PR。未经明确批准，不要合并 main。
 
 ---
 
