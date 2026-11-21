@@ -100,7 +100,7 @@ export function compileTemplate(template, { assetIds, title, durationPerImage } 
     }));
     transitions = Array.from({ length: clips.length - 1 }, () => ({ ...template.transition }));
     const finalDuration = timelineDuration(clips, transitions);
-    overlays = title?.trim() ? [{
+    overlays = typeof title === 'string' && title.trim() ? [{
       text: title.trim().slice(0, 100),
       start: 0,
       end: Math.min(3, finalDuration),
