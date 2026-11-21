@@ -28,6 +28,12 @@ function atempoChain(speed) {
   return factors.map((factor) => `atempo=${factor}`).join(',');
 }
 
+function motionOversample(clip, width, height) {
+  // A larger source canvas gives zoompan subpixel-level effective crop movement.
+  // Avoid scaling above 2K output sizes: high-resolution projects can become memory-heavy.
+  return clip.motion?.type && clip.motion.type !== 'none' && width * height <= 1920 * 1080 ? 2 : 1;
+}
+
 function motionFilter(clip, width, height, fps) {
   const motion = clip.motion?.type ?? 'none';
   if (motion === 'none') return '';
@@ -184,9 +190,12 @@ export async function renderProject({ store, projectId, outputName, ffmpegPath =
       const asset = assets.get(clip.assetId);
       if (!asset) throw new VideoStudioError(`时间线引用的素材已不存在：${clip.assetId}`, 'ASSET_NOT_FOUND');
       const clipPath = path.join(tempDir, `clip-${String(index + 1).padStart(3, '0')}.mp4`);
+      const scaleFactor = asset.role === 'image' ? motionOversample(clip, width, height) : 1;
+      const fitWidth = width * scaleFactor;
+      const fitHeight = height * scaleFactor;
       const filterFit = clip.fit === 'contain'
-        ? `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black`
-        : `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
+        ? `scale=${fitWidth}:${fitHeight}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${fitWidth}:${fitHeight}:(ow-iw)/2:(oh-ih)/2:color=black`
+        : `scale=${fitWidth}:${fitHeight}:force_original_aspect_ratio=increase:flags=lanczos,crop=${fitWidth}:${fitHeight}`;
       const sourceDuration = asset.role === 'image' ? clip.duration : clip.sourceOut - clip.sourceIn;
       const playback = asset.role === 'image' ? 1 : clip.speed;
       const trimAndSpeed = asset.role === 'image'

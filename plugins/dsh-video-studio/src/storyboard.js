@@ -1,5 +1,5 @@
 import { VideoStudioError } from './errors.js';
-import { TRANSITION_TYPES } from './templates/schema.js';
+import { TRANSITION_TYPES, MOTION_TYPES } from './templates/schema.js';
 
 function shortText(value, label, max, required = false) {
   const text = String(value ?? '').trim();
@@ -14,8 +14,13 @@ export function normalizeStoryboard({ topic, script = '', shots } = {}) {
   }
   const normalizedShots = shots.map((shot, index) => {
     if (!shot || typeof shot !== 'object' || Array.isArray(shot)) throw new VideoStudioError('第 ' + (index + 1) + ' 个镜头必须是对象。', 'INVALID_STORYBOARD');
-    const duration = Number(shot.duration ?? 4);
-    if (!Number.isFinite(duration) || duration < 1 || duration > 60) throw new VideoStudioError('第 ' + (index + 1) + ' 个镜头时长必须是 1–60 秒。', 'INVALID_STORYBOARD');
+    const duration = Number(shot.duration ?? 2);
+    if (!Number.isFinite(duration) || duration < 0.4 || duration > 60) throw new VideoStudioError('第 ' + (index + 1) + ' 个镜头时长必须是 0.4–60 秒。', 'INVALID_STORYBOARD');
+    const motionType = shot.motionType ?? 'none';
+    const motionIntensity = Number(shot.motionIntensity ?? 0.08);
+    if (!MOTION_TYPES.includes(motionType) || !Number.isFinite(motionIntensity) || motionIntensity < 0.05 || motionIntensity > 0.25) {
+      throw new VideoStudioError('第 ' + (index + 1) + ' 个镜头动画参数无效。', 'INVALID_STORYBOARD');
+    }
     const transitionType = shot.transitionType ?? 'cut';
     if (!TRANSITION_TYPES.includes(transitionType)) throw new VideoStudioError('第 ' + (index + 1) + ' 个镜头的转场类型无效。', 'INVALID_STORYBOARD');
     const transitionDuration = Number(shot.transitionDuration ?? (transitionType === 'cut' ? 0 : 0.35));
@@ -36,6 +41,8 @@ export function normalizeStoryboard({ topic, script = '', shots } = {}) {
       visualPrompt: shortText(shot.visualPrompt, '画面描述', 1000, true),
       searchQuery: shortText(shot.searchQuery, '素材搜索词', 100),
       duration,
+      motionType,
+      motionIntensity,
       sourcePreference,
       assetId: shot.assetId ? String(shot.assetId) : null,
       sourceIn: Number(shot.sourceIn ?? 0),
@@ -79,7 +86,8 @@ export function compileStoryboard(storyboard, project, { assetIds, fit = 'crop' 
     }
     let clip;
     if (asset.role === 'image') {
-      clip = { assetId, duration: shot.duration, speed: 1, sourceIn: 0, sourceOut: shot.duration, fit, motion: { type: 'zoom-in', intensity: 0.1 } };
+      // Static is the safe default for template-style photo edits; movement is opt-in.
+      clip = { assetId, duration: shot.duration, speed: 1, sourceIn: 0, sourceOut: shot.duration, fit, motion: { type: shot.motionType ?? 'none', intensity: shot.motionIntensity ?? 0.08 } };
     } else {
       const sourceIn = Number(shot.sourceIn || 0);
       const requestedOut = shot.sourceOut === null ? sourceIn + shot.duration : Number(shot.sourceOut);

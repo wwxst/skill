@@ -1,0 +1,90 @@
+{
+  "id": "us-photo-transition-activation",
+  "kind": "preset",
+  "version": 1,
+  "name": "US Fast Photo Transitions · Activation Preview",
+  "description": "Beat-friendly photo swaps with real visible differences. No conversion-heavy CTA in the edit; link the real CapCut template before publishing.",
+  "locale": "en-US",
+  "goal": "activation",
+  "format": "photo-matchcut",
+  "minAssets": 7,
+  "maxAssets": 7,
+  "requiresCapCutAnchor": true,
+  "slots": [
+    {
+      "duration": 1,
+      "caption": "$TITLE",
+      "fallbackTitle": "THE PHOTO SWITCH",
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 0.8,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 0.8,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "wipeleft",
+        "duration": 0.16
+      }
+    },
+    {
+      "duration": 0.9,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 0.9,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 1,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "wipeleft",
+        "duration": 0.16
+      }
+    },
+    {
+      "duration": 1.9,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      }
+    }
+  ]
+}

@@ -46,3 +46,24 @@ test('scales saved-template text for a different target canvas and supports lega
   });
   assert.equal(compiled.overlays[0].fontSize, 96);
 });
+
+test('US photo templates keep stable frames and early English hooks', () => {
+  const usPreset = {
+    kind: 'preset', name: 'US Photo Reveal', minAssets: 3, maxAssets: 3, locale: 'en-US',
+    slots: [
+      { duration: 1.2, caption: '$TITLE', fallbackTitle: 'HOW TO DO THIS PHOTO EDIT', motion: { type: 'none', intensity: 0.08 }, transition: { type: 'cut', duration: 0 } },
+      { duration: 1.1, motion: { type: 'none', intensity: 0.08 }, transition: { type: 'wipeleft', duration: 0.15 } },
+      { duration: 1.8, motion: { type: 'none', intensity: 0.08 } },
+    ],
+  };
+  const result = compileTemplate(usPreset, {
+    assetIds: ['a', 'b', 'c'],
+    title: 'HOW TO MAKE THIS EDIT',
+    targetOutput: { width: 1080, height: 1920 },
+  });
+  assert.deepEqual(result.clips.map(c => c.duration), [1.2, 1.1, 1.8]);
+  assert.ok(result.clips.every(c => c.motion.type === 'none'));
+  assert.equal(result.overlays[0].text, 'HOW TO MAKE THIS EDIT');
+  assert.equal(result.transitions[1].type, 'wipeleft');
+  assert.throws(() => compileTemplate(usPreset, { assetIds: ['a', 'b', 'c'], durationPerImage: 3 }), /固定分镜时长/);
+});

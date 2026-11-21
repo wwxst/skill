@@ -146,7 +146,7 @@ export class PixabayProvider {
     catch (error) { throw new VideoStudioError('Pixabay 返回了无法解析的 JSON。', 'PIXABAY_INVALID_RESPONSE', { cause: error }); }
   }
 
-  async search({ query, mediaType = 'image', orientation = 'vertical', category, imageType = 'photo', page = 1, perPage = 20, lang = 'zh', order = 'popular', signal } = {}) {
+  async search({ query, mediaType = 'image', orientation = 'vertical', category, imageType = 'photo', page = 1, perPage = 20, lang = 'en', order = 'popular', signal } = {}) {
     if (!['image', 'video'].includes(mediaType)) throw new VideoStudioError('mediaType 只能是 image 或 video。', 'INVALID_ARGUMENT');
     if (typeof query !== 'string' || !query.trim() || query.trim().length > 100) throw new VideoStudioError('搜索关键词不能为空，且不能超过 100 个字符。', 'INVALID_ARGUMENT');
     if (!Number.isInteger(page) || page < 1 || page > 100) throw new VideoStudioError('搜索页码必须是 1–100。', 'INVALID_ARGUMENT');

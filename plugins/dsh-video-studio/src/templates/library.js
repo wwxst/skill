@@ -3,10 +3,15 @@ import { readFile, readdir } from 'node:fs/promises';
 import { ensureDir, id, readJson, writeJsonAtomic } from '../util.js';
 import { timelineDuration } from './schema.js';
 
-const BUILTIN_PATH = new URL('./presets/cinematic-photo.json', import.meta.url);
+const BUILTIN_FILES = [
+  'cinematic-photo.json',
+  'us-photo-reveal-acquisition.json',
+  'us-photo-transition-activation.json',
+  'us-photo-memory-recap.json',
+];
 
 async function builtins() {
-  return [JSON.parse(await readFile(BUILTIN_PATH, 'utf8'))];
+  return Promise.all(BUILTIN_FILES.map(async (name) => JSON.parse(await readFile(new URL('./presets/' + name, import.meta.url), 'utf8'))));
 }
 
 function templateSummary(template, isBuiltIn) {
@@ -15,7 +20,12 @@ function templateSummary(template, isBuiltIn) {
     name: template.name,
     description: template.description ?? '',
     isBuiltIn,
-    assetCount: template.kind === 'preset' ? null : template.clips.length,
+    assetCount: template.kind === 'preset' ? (Array.isArray(template.slots) ? template.slots.length : null) : template.clips.length,
+    locale: template.locale ?? null,
+    goal: template.goal ?? null,
+    format: template.format ?? null,
+    isNativeCapCutTemplate: false,
+    requiresCapCutAnchor: Boolean(template.requiresCapCutAnchor),
     updatedAt: template.updatedAt ?? null,
   };
 }
@@ -106,25 +116,56 @@ export function compileTemplate(template, { assetIds, title, durationPerImage, t
     if (assetIds.length < template.minAssets || assetIds.length > template.maxAssets) {
       throw new Error(`模板“${template.name}”需要 ${template.minAssets}–${template.maxAssets} 张图片。`);
     }
-    const duration = Number(durationPerImage ?? template.durationPerImage);
-    if (!Number.isFinite(duration) || duration < 2 || duration > 15) throw new Error('每张图片时长必须在 2–15 秒之间。');
-    clips = assetIds.map((assetId, index) => ({
-      assetId,
-      duration,
-      fit: template.fit,
-      motion: { type: template.motions[index % template.motions.length], intensity: template.intensity },
-    }));
-    transitions = Array.from({ length: clips.length - 1 }, () => ({ ...template.transition }));
-    const finalDuration = timelineDuration(clips, transitions);
-    overlays = typeof title === 'string' && title.trim() ? [{
-      text: title.trim().slice(0, 100),
-      start: 0,
-      end: Math.min(3, finalDuration),
-      position: 'top',
-      fontSize: 64,
-      color: '#FFFFFF',
-      animation: 'fade-in-out',
-    }] : [];
+    if (Array.isArray(template.slots)) {
+      if (assetIds.length !== template.slots.length) throw new Error('该美区模板的素材数量必须等于槽位数量。');
+      if (durationPerImage !== undefined) throw new Error('美区节奏模板采用固定分镜时长，不支持 durationPerImage 覆盖；请修改时间线后另存模板。');
+      clips = template.slots.map((slot, index) => {
+        const duration = Number(slot.duration);
+        if (!Number.isFinite(duration) || duration < 0.4 || duration > 15) throw new Error('模板槽位时长必须在 0.4–15 秒之间。');
+        return {
+          assetId: assetIds[index],
+          duration,
+          fit: slot.fit ?? 'crop',
+          motion: slot.motion ?? { type: 'none', intensity: 0.08 },
+        };
+      });
+      transitions = template.slots.slice(0, -1).map((slot) => ({ ...slot.transition ?? { type: 'cut', duration: 0 } }));
+      overlays = [];
+      let cursor = 0;
+      template.slots.forEach((slot, index) => {
+        const caption = slot.caption === '$TITLE' ? String(title || slot.fallbackTitle || '').trim() : String(slot.caption || '').trim();
+        if (caption) overlays.push({
+          text: caption.slice(0, 100),
+          start: Math.max(0, cursor),
+          end: Math.max(0, cursor) + clips[index].duration,
+          position: slot.captionPosition ?? 'top',
+          fontSize: 54,
+          color: '#FFFFFF',
+          animation: 'none',
+        });
+        cursor += clips[index].duration - (transitions[index]?.duration || 0);
+      });
+    } else {
+      const duration = Number(durationPerImage ?? template.durationPerImage);
+      if (!Number.isFinite(duration) || duration < 2 || duration > 15) throw new Error('每张图片时长必须在 2–15 秒之间。');
+      clips = assetIds.map((assetId, index) => ({
+        assetId,
+        duration,
+        fit: template.fit,
+        motion: { type: template.motions[index % template.motions.length], intensity: template.intensity },
+      }));
+      transitions = Array.from({ length: clips.length - 1 }, () => ({ ...template.transition }));
+      const finalDuration = timelineDuration(clips, transitions);
+      overlays = typeof title === 'string' && title.trim() ? [{
+        text: title.trim().slice(0, 100),
+        start: 0,
+        end: Math.min(3, finalDuration),
+        position: 'top',
+        fontSize: 64,
+        color: '#FFFFFF',
+        animation: 'fade-in-out',
+      }] : [];
+    }
   } else {
     if (assetIds.length !== template.clips.length) {
       throw new Error(`模板“${template.name}”需要 ${template.clips.length} 个图片素材槽位，当前提供了 ${assetIds.length} 个。`);

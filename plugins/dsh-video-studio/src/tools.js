@@ -60,7 +60,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_template_list',
-      '列出内置和已保存的视频模板。',
+      '列出内置和已保存的视频模板，包括美区 en-US 拉新展示、拉活展示的照片转场预设；返回 goal、locale 和 requiresCapCutAnchor 等元数据。',
       {}, [],
       () => engine.templateList(), true,
     ),
@@ -77,14 +77,14 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_template_apply',
-      '把模板应用到当前项目。assetIds 按模板槽位顺序提供本项目已导入的图片素材 ID；内置电影感模板支持 2–12 张图片。应用后保留当前项目的画幅、分辨率和 FPS，保存模板中的文字字号按目标画布高度自动缩放。',
+      '把模板应用到当前项目。先调用 video_template_list 按 locale/goal 选择预设。美区拉新/拉活模板为照片转场展示预览，不能导出 CapCut 原生模板，也不会自动配置 TikTok 系统锚点；发布前必须另行核实对应 CapCut 模板与锚点。assetIds 按槽位传入图片，应用后保留项目输出画幅。',
       {
         projectId: string('项目 ID'),
         expectedRevision: number('video_project_get 返回的当前 revision'),
         templateId: string('video_template_list 返回的模板 ID'),
         assetIds: { type: 'array', minItems: 2, maxItems: 12, items: string('项目内已导入的图片素材 ID') },
         title: string('可选标题，仅内置电影感模板使用'),
-        durationPerImage: number('内置模板每张图片时长 2–15 秒，默认 3.5 秒'),
+        durationPerImage: number('仅老版电影感模板支持 2–15 秒；美区节奏模板已固定各镜头时长，不能覆盖'),
       }, ['projectId', 'expectedRevision', 'templateId', 'assetIds'],
       (args) => engine.templateApply(args),
     ),
@@ -232,7 +232,7 @@ export function createToolDefinitions(engine) {
         imageType: enumString('图片类型，仅 image 搜索使用', ['all', 'photo', 'illustration', 'vector']),
         page: number('页码 1–100，默认 1'),
         perPage: number('每页数量 3–50，默认 20'),
-        lang: string('搜索语言代码，默认 zh'),
+        lang: string('搜索语言代码，默认 en；美区项目使用英文关键词'),
         order: enumString('排序', ['popular', 'latest']),
       }, ['query'],
       (args) => engine.mediaSearch(args), true,
@@ -343,7 +343,7 @@ export function createToolDefinitions(engine) {
         fit: enumString('画面适配', ['crop', 'contain']),
         templateId: string('可选模板 ID；模板槽位数量必须与图片镜头数量一致'),
         title: string('模板标题，可选；默认使用选题'),
-        durationPerImage: number('内置模板每张图片时长 2–15 秒'),
+        durationPerImage: number('仅老版电影感模板支持该参数；美区节奏模板不使用'),
       }, ['projectId', 'expectedRevision'],
       (args) => engine.storyboardApply(args),
     ),
@@ -503,12 +503,12 @@ export function createToolDefinitions(engine) {
 export const videoStudioInstructions = `你已连接 Video Studio 本地视频制作插件（0.5.0）。
 制作前先调用 video_studio_status。检查 FFmpeg/FFprobe、libx264、libass 和关键滤镜；Pixabay 和图片生成是可选外部服务，状态会显示是否配置，不能因为未配置就误报本地剪辑引擎不可用。
 标准制作流程：video_project_create → video_asset_import / video_library_import → video_project_get → 规划镜头 → 搜索或生成素材 → video_storyboard_create → 为每个镜头绑定素材 → video_storyboard_apply → 检查时间线和字幕 → video_render → video_job_status 轮询到终态 → video_quality_check → video_output_list。
-CapCut 拉新项目必须优先使用仓库 Skill capcut-launch-tiktok 的文案结构、锚点前置、CTA 和视频简介规则；项目号（acquisition）与中视频号（mid-video）分开规划、分开统计，不要混用目标和指标。
+面向美区 TikTok 的模板内容，必须先明确 goal=acquisition（拉新）或 goal=activation（拉活），在 video_template_list 中选择 locale=en-US 且 goal 匹配的模板；不要默认用 cinematic-photo 夜景幻灯片。美区内容应围绕换装、照片前后对比、纪念回顾、宠物、毕业或关系类照片转场等真实可套用的编辑效果，英文字幕/英文搜索关键词，镜头之间有明显变化；不要把东亚霓虹街景配中文诗意字幕包装成美区模板。拉新要结果前置，文案匹配 TikTok 真正挂出的 CapCut 系统锚点，符合仓库 Skill capcut-launch-tiktok；拉活以视觉成片/节奏和自然展示为主，避免硬引导。无论哪类，插件生成的是 MP4 展示视频，不是 CapCut 可替换素材的原生模板；发布前必须确认真实 CapCut 模板可用、对应锚点已正确设置，不能虚构“点左下角即可使用”。严禁未经确认就宣称视频已具备原生模板和 TikTok 锚点。
 镜头规划由当前对话 AI 根据用户选题、脚本、目标账号和时长生成；每个镜头写清画面描述、素材搜索词、时长、旁白、字幕和转场，再保存为 storyboard。Pixabay 搜索结果必须保留来源页面和作者信息；下载时记录 Pixabay Content License 和来源。Pixabay API 有速率限制，搜索结果缓存 24 小时，不要自动批量抓取或系统性下载。
 图片生成可能产生费用。没有用户明确同意时，绝不能调用付费生成；只有用户确认后才能把 confirmCost 设置为 true。生成图片会自动进入本地素材库并导入项目。素材库按 SHA-256 去重，可用标签管理和跨项目复用。
 项目素材只能从允许目录导入。默认允许当前工作目录、用户主目录和 Video Studio 数据目录；遇到 ASSET_PATH_NOT_ALLOWED 时提示用户配置 allowedRoots，不要绕过安全限制。
 video_project_duplicate 可从同一源项目复制不同画幅、分辨率、帧率和标题版本；之后用 video_batch_render 顺序批量渲染。批量任务单项失败不会阻止其他项目，进程中断后可用 video_job_retry 只重试未完成项。
-每次渲染后会自动执行一次基础质量检查，另可用 video_quality_check 检查黑场、静帧、音频响度、静音区间、字幕阅读速度和文字可读性。自动检测是辅助提示，不代替人工审片。
+每次渲染后会自动执行一次基础质量检查，另可用 video_quality_check 检查黑场、静帧、音频响度、静音区间、字幕阅读速度和文字可读性。当前 storyboard 的静态图片默认不运动；要加入轻微推拉时才显式设置 motionType 和 motionIntensity。美区转场模板使用稳定静帧与短促切换，避免连续长段无意义推拉。自动检测是辅助提示，不代替人工审片。
 每个 TikTok 账号使用独立 accountId（例如 capcut-project-01、mid-video-01）。分别调用 video_tiktok_authorize 和 video_tiktok_connect 完成授权；账号令牌按 accountId 隔离并保存在本机。通过 video_tiktok_video_list 指定 accountId 读取对应作品，再在 video_tiktok_sync 的每条 mapping 中指定 accountId，将真实播放、点赞、评论、分享快照映射到项目；主页访问、关注和 CPS 转化通过 video_performance_record 补录。用 video_performance_summary 按 accountId 或 accountType 分别比较账号和账号类型的表现。只能录入真实数据；样本量不足时不能把比例推断为确定规律。
 修改时间线、字幕、镜头清单或复制项目前，必须先 video_project_get 获取最新 revision；遇到 REVISION_CONFLICT 重新读取后再修改。模板目前只保存图片时间线、镜头运动、转场和文字样式，不覆盖目标项目的画幅、分辨率和 FPS。
 当前仍不支持自动语音识别（ASR）、AI 语音合成（TTS）、CapCut 原生草稿导出、专业节点调色和专业级多轨合成。不要声称这些能力已实现。用户提供的音乐、旁白和 SRT 可以导入并参与渲染。

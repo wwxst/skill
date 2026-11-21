@@ -102,6 +102,8 @@ test('applies, renders, saves, and reuses a cinematic photo template', async (t)
 
   const templates = await engine.templateList();
   assert.ok(templates.some((item) => item.id === 'cinematic-photo' && item.isBuiltIn));
+  assert.ok(templates.some((item) => item.id === 'us-photo-reveal-acquisition' && item.locale === 'en-US' && item.goal === 'acquisition'));
+  assert.ok(templates.some((item) => item.id === 'us-photo-transition-activation' && item.locale === 'en-US' && item.goal === 'activation'));
 
   const applied = await engine.templateApply({
     projectId: project.id,

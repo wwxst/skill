@@ -31,3 +31,21 @@ test('rejects missing assets and malformed shot lists', () => {
   const storyboard = normalizeStoryboard({ topic: 'Topic', shots: [{ visualPrompt: 'A scene' }] });
   assert.throws(() => compileStoryboard(storyboard, { assets: [], timeline: {} }), (error) => error.code === 'INVALID_STORYBOARD_ASSETS');
 });
+
+test('photo storyboard defaults to steady frames and supports short cut timing', () => {
+  const storyboard = normalizeStoryboard({
+    topic: 'US photo edit',
+    shots: [
+      { visualPrompt: 'Before photo', duration: 0.6, transitionType: 'cut', transitionDuration: 0 },
+      { visualPrompt: 'After photo', duration: 0.9, motionType: 'zoom-in', motionIntensity: 0.06 },
+    ],
+  });
+  const compiled = compileStoryboard(storyboard, {
+    assets: [{ id: 'before', role: 'image' }, { id: 'after', role: 'image' }],
+    timeline: {},
+  }, { assetIds: ['before', 'after'] });
+  assert.equal(compiled.clips[0].motion.type, 'none');
+  assert.equal(compiled.clips[1].motion.type, 'zoom-in');
+  assert.equal(compiled.clips[1].motion.intensity, 0.06);
+  assert.equal(compiled.clips[0].duration, 0.6);
+});

@@ -82,3 +82,13 @@ CI 通过不代表已完成用户 Windows + DeepSeek Harness 安装验收。最�
 - `main` 未修改；PR #1 仍为 Draft，未合并。
 - 未经用户明确批准，不合并 main、不发布正式版本。
 - 继续工作前读取本文件、README、ARCHITECTURE、ROADMAP，再核对远程 HEAD、diff、最新 CI。
+
+## 2026-11-21 美区模板反馈修复
+
+- 用户实测反馈：样片《模板样片_夜色霓虹_9x16_v4.mp4》18.17 秒、1080×1920、30fps，主要是东亚霓虹街景及中文字幕；画面存在轻微跳动，内容不满足美区 CapCut 拉新/拉活需求。
+- 已针对渲染流程采用图像运动 2 倍源画布采样（1080p 及以下），降低 zoompan 整数像素移动造成的细碎卡顿。
+- Storyboard 默认静止镜头、不再全部强制 zoom-in，支持主动指定 motionType / motionIntensity 和最短 0.4 秒片段。
+- 新增三套 `en-US` 图片转场预设：拉新结果先行、拉活照片快切、拉活回忆回顾；含 goal、locale、requiresCapCutAnchor 等元数据。
+- 内容规则新增美区英文素材、差异化拉新/拉活、真实 CapCut 模板与 TikTok 系统锚点核验。
+- 这些预设仅生产 MP4 视频展示，不是 CapCut 原生可编辑模板。实际 CPS/拉活转化仍依赖发布账号、可用的原生模板与平台真实锚点。
+- 必须复核最新 CI；不要沿用旧版 34 项通过的测试状态。

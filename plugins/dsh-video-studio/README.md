@@ -76,6 +76,23 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 
 默认地址：`http://127.0.0.1:4174`。工作台只能从运行 Harness 的这台电脑访问。
 
+
+## US TikTok CapCut 模板制作（拉新 / 拉活）
+
+新内置模板在 `video_template_list` 中标记 `locale=en-US` 和 `goal`：
+
+| 模板 | goal | 图片槽位 | 内容结构 |
+|---|---|---:|---|
+| `us-photo-reveal-acquisition` | `acquisition` | 4 | 先出结果 → 原图 → 变换 → 结果；英文教学型钩子 |
+| `us-photo-transition-activation` | `activation` | 7 | 短切与轻擦除，让照片在节奏点出现明显变化 |
+| `us-photo-memory-recap` | `activation` | 6 | 美国受众常见的个人照片回顾、毕业、宠物、旅行等主题 |
+
+美区模板默认静帧，不会对每张图强制推近。仅手动选择轻微镜头运动时才使用 2 倍渲染采样（在常见 1080p 画幅内）减少像素级跳动。
+
+**重要：** 这三套是可复用的 MP4 视频展示剪辑预设，**不是** CapCut 可上传/分享的原生模板文件，也不能自动给 TikTok 视频挂系统级 CapCut 锚点。拉新必须先有真实有效的 CapCut 模板和发布锚点，才能加对应 CTA。拉活展示也应关联实际可用模板。主题、英文用语、真人素材授权和歌曲商业使用许可均需核实。
+
+制作流程和拉新/拉活差异参考 [US_CAPCUT_TEMPLATE_GUIDE](docs/US_CAPCUT_TEMPLATE_GUIDE.md)。
+
 ## TikTok 内容 Skill 与数据连接
 
 本仓库包含 `skills/capcut-launch-tiktok/SKILL.md`。制作 CapCut 拉新项目时，应在 DeepSeek Harness 中启用该 Skill，并按其锚点前置、短句字幕、教程型结构、搜索简介和视觉安全区规则生成镜头与字幕。Video Studio 负责执行素材导入、镜头时间线、字幕、渲染和质量检查；内容策略仍由 Harness 当前模型与 Skill 提供。中视频账号使用独立的流量目标，不套用 CapCut CPS 拉新 CTA。
