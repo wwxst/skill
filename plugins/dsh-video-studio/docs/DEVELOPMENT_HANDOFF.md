@@ -4,7 +4,7 @@
 > 仓库：`wwxst/skill`
 > 分支：`feat/auto-video-production`
 > 当前开发版本：`0.5.0`
-> 交接时远程 HEAD：`543c1ed80001e85d45dcf3a48bb36599cd8f977a`
+> 交接时远程 HEAD：`a702c11c6a333f1f1c3f5d9c300d679ede3b0fa7`
 > PR：[Draft #1](https://github.com/wwxst/skill/pull/1)
 > 新对话必须重新核对远程 HEAD、main 差异和最新 CI。
 
@@ -45,6 +45,7 @@ Video Studio 是给 DeepSeek Harness 使用的本地视频制作插件。Harness
 - 多项目批量渲染、单项失败隔离、失败重试
 - TikTok 多账号 OAuth 授权；按 accountId 隔离 state、令牌和作品读取
 - OAuth state 10 分钟过期，校验原始 redirectUri；refresh token 自动轮换
+- 多账号令牌文件写入串行化，避免并发授权/刷新时互相覆盖
 - TikTok Display API 作品列表及播放、点赞、评论、分享指标同步
 - 真实指标快照按具体账号、账号类型、项目、选题、开头和模板汇总
 - 缺失的主页访问、关注、CPS 下载/注册转化保留为未提供，不伪装成 0；由业务后台补录
@@ -63,7 +64,7 @@ Video Studio 是给 DeepSeek Harness 使用的本地视频制作插件。Harness
 
 ## 自动化验证
 
-当前已验证提交 `af3f72d2351dde2789d4f8ef4b0ab8459c5ba5e6` 的 Windows 和 Ubuntu CI 均通过，29 项测试全部通过。当前 HEAD 在此基础上增加了 TikTok 多账号授权与同步，必须以该 HEAD 的最新 CI 结果为准。测试覆盖真实 FFmpeg MP4、模板、镜头运动/文字像素、素材库去重、Pixabay 流式大小限制和媒体签名检查、图片生成响应校验、TikTok OAuth/分页/令牌轮换/多账号隔离、指标端到端同步、批量渲染和质量检查。
+当前 HEAD `a702c11c6a333f1f1c3f5d9c300d679ede3b0fa7` 的 GitHub Actions push 和 pull_request 两条流水线均通过。Windows 33/33、Ubuntu 33/33，0 失败。测试覆盖真实 FFmpeg MP4、模板、镜头运动/文字像素、素材库去重、Pixabay 流式大小限制和媒体签名检查、图片生成响应校验、TikTok OAuth/分页/令牌轮换/多账号隔离/并发令牌持久化、指标端到端同步、批量渲染和质量检查。
 
 CI 通过不代表已完成用户 Windows + DeepSeek Harness 安装验收。最终需要在用户电脑上验证真实 FFmpeg 构建、Harness 安装、Pixabay Key、图片 API Key、TikTok OAuth 和真实素材生产。
 
