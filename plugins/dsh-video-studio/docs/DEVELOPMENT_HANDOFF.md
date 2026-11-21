@@ -4,9 +4,9 @@
 > 仓库：`wwxst/skill`
 > 分支：`feat/auto-video-production`
 > 当前开发版本：`0.5.0`
-> 交接时远程 HEAD：`a702c11c6a333f1f1c3f5d9c300d679ede3b0fa7`
+> 最后一次通过 Windows / Ubuntu CI 的代码 HEAD：`a702c11c6a333f1f1c3f5d9c300d679ede3b0fa7`
 > PR：[Draft #1](https://github.com/wwxst/skill/pull/1)
-> 新对话必须重新核对远程 HEAD、main 差异和最新 CI。
+> 当前分支可能包含该代码 HEAD 之后的文档提交；新对话必须重新核对远程 HEAD、main 差异和最新 CI。
 
 ## 项目目标
 
