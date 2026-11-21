@@ -2,11 +2,12 @@
 
 > 最近更新：2026-11-21
 > 仓库：`wwxst/skill`
-> 分支：`feat/auto-video-production`
-> 当前开发版本：`0.5.0`
-> 最后一次通过 Windows / Ubuntu CI 的代码 HEAD：`54911c4fb8a98fe3479a4f27824c985888232be5`
-> PR：[Draft #1](https://github.com/wwxst/skill/pull/1)
-> 当前分支可能包含该代码 HEAD 之后的文档提交；新对话必须重新核对远程 HEAD、main 差异和最新 CI。
+> 唯一正式分支：`main`
+> 统一版本：`0.5.0`（旧版 0.1.0 已被替代）
+> 正式合并提交：`707b2524a537477845b3a434cf555ae4c092d83a`
+> PR：[已合并 #1](https://github.com/wwxst/skill/pull/1)，采用 Squash 合并
+> 原 `feat/auto-video-production` 是旧开发分支，禁止作为后续安装入口。
+> 新对话应以 `main` 实际文件和最新 CI 为准；当前文件是交接记录而非版本锁定声明。
 
 ## 项目目标
 
@@ -64,7 +65,7 @@ Video Studio 是给 DeepSeek Harness 使用的本地视频制作插件。Harness
 
 ## 自动化验证
 
-当前代码 HEAD `54911c4fb8a98fe3479a4f27824c985888232be5` 的 GitHub Actions push 和 pull_request 两条流水线均通过。Windows 34/34、Ubuntu 34/34，0 失败。测试覆盖真实 FFmpeg MP4、模板、镜头运动/文字像素、素材库去重、Pixabay 流式大小限制、媒体签名检查和 API Key 错误信息脱敏、图片生成响应校验、TikTok OAuth/分页/令牌轮换/多账号隔离/并发令牌持久化、指标端到端同步、批量渲染和质量检查。
+正式合并后的 `main` 提交 `707b2524a537477845b3a434cf555ae4c092d83a` 已通过 [GitHub Actions #44890879720](https://github.com/wwxst/skill/actions/runs/44890879720)：Windows 和 Ubuntu 均通过。合并前已验证的完整实现为 Windows 63/63、Ubuntu 63/63，0 失败。测试覆盖真实 FFmpeg MP4、美区稳定照片展示模板、镜头运动/文字、素材库去重、Pixabay 流式限制/媒体签名/API Key 脱敏、图片生成和模型配置、TikTok 多账号授权与指标同步、批量渲染和质量检查。
 
 CI 通过不代表已完成用户 Windows + DeepSeek Harness 安装验收。最终需要在用户电脑上验证真实 FFmpeg 构建、Harness 安装、Pixabay Key、图片 API Key、TikTok OAuth 和真实素材生产。
 
@@ -76,12 +77,13 @@ CI 通过不代表已完成用户 Windows + DeepSeek Harness 安装验收。最�
 - 未经授权的 TikTok 私有数据抓取
 - 自动发布 TikTok（当前只做制作和已发布数据同步）
 
-## 分支和交付规则
+## 统一版本和后续交付规则
 
-- 当前开发分支：`feat/auto-video-production`
-- `main` 未修改；PR #1 仍为 Draft，未合并。
-- 未经用户明确批准，不合并 main、不发布正式版本。
-- 继续工作前读取本文件、README、ARCHITECTURE、ROADMAP，再核对远程 HEAD、diff、最新 CI。
+- 用户已授权将两个分支版本统一，2026-11-21 已将 0.5.0 通过 PR #1 Squash 合并进 `main`。
+- `main` 是**唯一正式安装和后续开发基线**；不再维护独立的 0.1.0，也不要向历史功能分支继续提交功能。
+- 历史 `feat/auto-video-production` 仍可能存在于 GitHub 分支列表，但已不是另一套产品；可在 GitHub Branches 页面删除它，避免误用。
+- 没有运行过用户 Windows + DeepSeek Harness 本机的完整验收；在正式投入批量生产前仍应按 `ACCEPTANCE_CHECKLIST.md` 实测。
+- 新工作应先读取 main 的 README、ARCHITECTURE、ROADMAP 与本交接文档，再核对最新 CI，功能变更走独立 PR。
 
 ## 2026-11-21 美区模板反馈修复
 
@@ -91,4 +93,4 @@ CI 通过不代表已完成用户 Windows + DeepSeek Harness 安装验收。最�
 - 新增三套 `en-US` 图片转场预设：拉新结果先行、拉活照片快切、拉活回忆回顾；含 goal、locale、requiresCapCutAnchor 等元数据。
 - 内容规则新增美区英文素材、差异化拉新/拉活、真实 CapCut 模板与 TikTok 系统锚点核验。
 - 这些预设仅生产 MP4 视频展示，不是 CapCut 原生可编辑模板。实际 CPS/拉活转化仍依赖发布账号、可用的原生模板与平台真实锚点。
-- 必须复核最新 CI；不要沿用旧版 34 项通过的测试状态。
+- 已在统一版 0.5.0 中通过 Windows、Ubuntu 的实际渲染测试；仍需实机检查最终照片质量、美区内容和真实 TikTok 模板/锚点。

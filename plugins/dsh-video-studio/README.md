@@ -2,7 +2,7 @@
 
 一个面向 DeepSeek Harness 的本地视频制作插件。AI 通过 Harness 工具调用管理素材、编排时间线、添加字幕和音轨，并使用本机 FFmpeg 生成 MP4。
 
-> 当前版本：`0.5.0`。目标适配 DeepSeek Harness `0.2.2-rc.5` 及兼容版本。需要 Node.js `24.9+`、FFmpeg `7+`、FFprobe `7+`。
+> 当前唯一正式版本：`0.5.0`（仓库 `main` 分支，旧版 `0.1.0` 已替代）。目标适配 DeepSeek Harness `0.2.2-rc.5` 及兼容版本。需要 Node.js `24.9+`、FFmpeg `7+`、FFprobe `7+`。
 
 ## 能力
 

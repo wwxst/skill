@@ -2,6 +2,10 @@
 
 个人维护的 DeepSeek Harness 技能与插件集合。
 
+> **唯一正式版本：** `main` 分支下的 `plugins/dsh-video-studio`，当前版本 **0.5.0**。
+> 原来的 `0.1.0` 已由 `0.5.0` 完整替代，旧开发分支 `feat/auto-video-production` 仅作为历史记录，不再是安装或开发入口。
+> 需要安装时直接使用 `main`，不要从旧开发分支重复安装。
+
 ## 目录约定
 
 ```
@@ -45,9 +49,13 @@ TikTok 上给 CapCut 拉新的短视频文案与结构方法。核心内容：
 
 ### dsh-video-studio
 
-视频工作台插件。
+**统一正式版本 0.5.0。** 在基础 FFmpeg 视频剪辑上提供图片转场、美区 CapCut 拉新/拉活 MP4 展示预设、Pixabay 素材、AI 图片生成、批量出片、质量检查和 TikTok 数据同步。
 
-安装：通过 DSH 的插件管理器挂载，或把 `package.json` 里的包链接进 profile。
+- 插件目录：[plugins/dsh-video-studio](plugins/dsh-video-studio/)
+- 安装说明：[INSTALL.md](plugins/dsh-video-studio/docs/INSTALL.md)
+- 美区制作规范：[US_CAPCUT_TEMPLATE_GUIDE.md](plugins/dsh-video-studio/docs/US_CAPCUT_TEMPLATE_GUIDE.md)
+
+注意：插件提供的是**视频展示成片**，不是 CapCut 原生可替换媒体的模板文件；TikTok 系统锚点仍需在发布平台配置。
 
 ## 新增内容时
 
