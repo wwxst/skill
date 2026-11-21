@@ -1,6 +1,6 @@
 {
   "name": "@wwxst/dsh-video-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local AI-assisted video production tools for DeepSeek Harness",
   "type": "module",
   "main": "./index.js",
