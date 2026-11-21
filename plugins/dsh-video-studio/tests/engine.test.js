@@ -87,7 +87,15 @@ test('creates project, imports media, guards revisions, and renders a real MP4',
 
 test('rejects media paths outside configured roots', async (t) => {
   const allowed = await mkdtemp(path.join(os.tmpdir(), 'dsh-video-allowed-'));
-  const denied = await mkdtemp(path.join(os.tmpdir(), 'dsh-video-denied-'));
+  const tempRelativeToHome = path.relative(os.homedir(), os.tmpdir());
+  const tempIsInsideHome = tempRelativeToHome === '' || (!tempRelativeToHome.startsWith('..') && !path.isAbsolute(tempRelativeToHome));
+  let denied;
+  if (tempIsInsideHome) {
+    denied = path.join(path.dirname(os.homedir()), 'dsh-video-denied-' + process.pid + '-' + Date.now());
+    await mkdir(denied, { recursive: true });
+  } else {
+    denied = await mkdtemp(path.join(os.tmpdir(), 'dsh-video-denied-'));
+  }
   const dataDir = path.join(allowed, 'data');
   await mkdir(dataDir, { recursive: true });
   const file = path.join(denied, 'outside.mp4');
