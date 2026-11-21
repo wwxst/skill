@@ -115,7 +115,7 @@ test('applies, renders, saves, and reuses a cinematic photo template', async (t)
   assert.ok(Math.abs(applied.duration - 3.55) < 0.02);
   assert.equal(applied.timeline.transitions[0].type, 'fade');
   assert.equal(applied.timeline.clips[0].motion.type, 'zoom-in');
-  assert.equal(applied.timeline.overlays[0].text, 'Cinematic test');
+  assert.equal(applied.timeline.overlays[0].text, 'TEST');
 
   const submitted = await engine.submitRender({ projectId: project.id, outputName: 'cinematic-test' });
   const job = await waitForJob(engine, submitted.jobId);

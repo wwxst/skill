@@ -37,7 +37,7 @@ ffmpeg -version
 ffprobe -version
 ```
 
-DeepSeek Harness 当前官方主线要求 Node.js `24.9+`。FFmpeg 和 FFprobe 需要 `7+`，并且都能从 `PATH` 找到。
+DeepSeek Harness 当前官方主线要求 Node.js `24.9+`。FFmpeg 和 FFprobe 需要 `7+`，并且都能从 `PATH` 找到；FFmpeg 还需要包含 `libx264`、`libass` 及本插件使用的转场、镜头运动和音频滤镜。运行 `video_studio_status` 会实际探测这些依赖，并列出不可用的功能。
 
 1. 解压插件目录，例如 `D:\Apps\dsh-video-studio`。
 2. 打开 PowerShell，运行安装脚本（默认安装到 `web` profile）：

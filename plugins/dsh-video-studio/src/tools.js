@@ -225,10 +225,10 @@ export function createToolDefinitions(engine) {
 }
 
 export const videoStudioInstructions = `你已连接 Video Studio 本地视频制作插件。
-制作前先调用 video_studio_status 检查 FFmpeg 和 FFprobe 是否可用。
+制作前先调用 video_studio_status 检查 FFmpeg/FFprobe、libx264 和关键滤镜；如果 missingFeatures 不为空，先向用户说明哪些功能不可用，不要声称完整能力已就绪。
 推荐流程：video_project_create 创建项目 → video_asset_import 导入素材 → video_project_get 查看素材信息和 revision → video_template_list 查看可用模板；有合适模板时调用 video_template_apply，没有合适模板时调用 video_timeline_update 自己编排 → 需要复用原创图片模板时调用 video_template_save → video_render 提交渲染 → 持续调用 video_job_status 直到任务进入终态 → video_output_list 核对成片。
 视频和图片素材必须先导入项目，时间线只引用项目内 assetId。视频原声会保留；图片或无原声的视频片段会补静音轨。片段按 clips 数组顺序播放。图片片段可设置 zoom-in、zoom-out、pan-left/right/up/down；转场数组必须比片段数量少一个，省略或空数组表示硬切；动态文字叠加的时间必须落在最终视频时长内。保存模板目前只支持 2–12 个图片片段，应用模板时 assetIds 按模板槽位顺序传入。
-时间线和字幕修改必须使用最近一次 video_project_get 返回的 revision，出现 REVISION_CONFLICT 时重新读取后再修改。保存模板也必须传当前 revision。
+用户保存的模板只复用图片时间线、镜头运动、转场和文字样式，不覆盖目标项目的画幅、分辨率和 FPS；模板文字字号按目标画布高度缩放。时间线和字幕修改必须使用最近一次 video_project_get 返回的 revision，出现 REVISION_CONFLICT 时重新读取后再修改。保存模板也必须传当前 revision。
 导入素材只能使用允许目录中的文件。默认允许当前工作目录和用户主目录；遇到 ASSET_PATH_NOT_ALLOWED 时，不要尝试绕过限制，应提示用户把文件放入允许目录或配置 allowedRoots。
 当前支持基础顺序剪辑、入点/出点、恒定倍速、图片推拉和平移、淡入/溶解/擦除/滑动/圆形/像素化转场、动态文字叠加、内置和用户保存的可复用模板、背景音乐、旁白混音、SRT 字幕和 MP4 导出。当前不支持自动语音识别、AI 配音、自动选镜头、在线素材搜索下载、专业节点调色和原生剪映草稿导出；不要声称这些功能已经完成。SRT 和音频素材需要用户或其他工具提供。
 渲染任务返回 jobId 后必须轮询任务状态，不能把“已提交”说成“已完成”。成片完成后核对实际输出、时长、分辨率和音轨；技术检查通过不代表叙事和视觉质量已经通过。原始素材不会被修改。`;
