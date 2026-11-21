@@ -1,0 +1,32 @@
+name: Video Studio tests
+
+on:
+  push:
+    branches:
+      - main
+      - feat/auto-video-production
+    paths:
+      - 'plugins/dsh-video-studio/**'
+      - '.github/workflows/video-studio.yml'
+  pull_request:
+    paths:
+      - 'plugins/dsh-video-studio/**'
+      - '.github/workflows/video-studio.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.9.0'
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+      - name: Run plugin tests
+        working-directory: plugins/dsh-video-studio
+        run: npm test
