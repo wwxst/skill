@@ -11,12 +11,14 @@
 
 1. 把 `dsh-video-studio` 文件夹解压到固定位置，例如 `D:\Apps\dsh-video-studio`。
 2. 确认 `ffmpeg.exe` 和 `ffprobe.exe` 所在的 `bin` 目录已经加入系统 PATH。
-3. 在 PowerShell 运行：
+3. 在 PowerShell 运行（首次需联网安装插件运行依赖）：
 
 ```powershell
 node --version
 ffmpeg -version
 ffprobe -version
+cd D:\Apps\dsh-video-studio
+npm install --omit=dev --ignore-scripts --no-audit --no-fund
 dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 ```
 

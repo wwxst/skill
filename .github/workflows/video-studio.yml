@@ -27,11 +27,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24.9.0'
-      # index.js imports @deepseek-ai/schemastery for the Config schema, so the
-      # suite no longer runs straight off a fresh checkout.
-      - name: Install plugin dependencies
-        working-directory: plugins/dsh-video-studio
-        run: npm ci --no-audit --no-fund
       - name: Install FFmpeg (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -40,6 +35,9 @@ jobs:
       - name: Install FFmpeg (Windows)
         if: runner.os == 'Windows'
         run: choco install ffmpeg --yes --no-progress
+      - name: Install plugin runtime dependencies
+        working-directory: plugins/dsh-video-studio
+        run: npm install --omit=dev --ignore-scripts --no-package-lock --no-audit --no-fund
       - name: Run plugin tests
         working-directory: plugins/dsh-video-studio
         run: npm test

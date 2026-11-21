@@ -31,6 +31,13 @@ Write-Host $ffmpegVersion
 Write-Host $ffprobeVersion
 
 $packagePath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+Require-Command "npm"
+Write-Host "安装 Video Studio 运行依赖..."
+Push-Location $packagePath
+try {
+  & npm install --omit=dev --ignore-scripts --no-audit --no-fund
+  if ($LASTEXITCODE -ne 0) { throw "npm 安装插件依赖失败，退出码：$LASTEXITCODE" }
+} finally { Pop-Location }
 $spec = "link:$packagePath"
 Write-Host "正在安装到 DeepSeek Harness profile '$Profile' ..."
 & dsh plugin --profile $Profile add $spec
