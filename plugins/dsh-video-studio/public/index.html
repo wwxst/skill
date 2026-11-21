@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Video Studio · 本地视频工作台</title>
+  <style>
+    :root{font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif;color-scheme:light dark;--bg:#101615;--panel:#19211f;--panel2:#202b28;--line:#34423e;--text:#e8efec;--muted:#a3b2ac;--accent:#71b5a8;--danger:#e38d82;--good:#8dc7a5}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:9px;padding:9px 13px}button.primary{background:#2f7167;border-color:#4b9488;color:white}button:disabled{opacity:.5;cursor:not-allowed}input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;background:#111a17;color:var(--text);padding:9px}textarea{min-height:130px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:12px}label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.shell{max-width:1440px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}.brand{display:flex;align-items:center;gap:12px}.logo{width:42px;height:42px;border:1px solid var(--line);border-radius:12px;display:grid;place-items:center;color:var(--accent);font-weight:800;font-size:18px}.brand h1{font-size:19px;margin:0}.brand p{font-size:12px;color:var(--muted);margin:4px 0 0}.status{font-size:12px;color:var(--muted);padding:8px 12px;border:1px solid var(--line);border-radius:999px}.layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}.panel h2{font-size:15px;margin:0 0 14px}.panel h3{font-size:13px;margin:0 0 10px}.muted{color:var(--muted)}.small{font-size:12px}.stack{display:grid;gap:12px}.row{display:flex;gap:9px;align-items:end}.row>*{flex:1;min-width:0}.project-item{width:100%;display:block;text-align:left;margin:7px 0;padding:11px}.project-item.active{border-color:var(--accent);background:#213a34}.project-item strong{display:block;font-size:13px}.project-item span{display:block;color:var(--muted);font-size:11px;margin-top:4px}.asset{border:1px solid var(--line);border-radius:9px;padding:10px;margin:7px 0}.asset strong{font-size:12px}.asset code{display:block;color:var(--muted);font-size:10px;overflow-wrap:anywhere;margin-top:4px}.clip-row{display:grid;grid-template-columns:minmax(130px,2fr) repeat(3,minmax(75px,1fr)) 34px;gap:8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:9px;margin:8px 0}.clip-row label{font-size:10px}.clip-row button{padding:7px}.progress{height:8px;background:#0c1311;border-radius:99px;overflow:hidden;margin:8px 0}.progress>i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}.output video{width:100%;max-height:520px;background:#000;border-radius:10px}.hidden{display:none!important}.notice{padding:10px 12px;border-radius:9px;background:#22332e;color:var(--muted);font-size:12px;line-height:1.6}.error{color:var(--danger)}.good{color:var(--good)}.actions{display:flex;gap:8px;flex-wrap:wrap}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.divider{border-top:1px solid var(--line);margin:14px 0}.empty{color:var(--muted);font-size:13px;padding:18px;text-align:center;border:1px dashed var(--line);border-radius:9px}@media(max-width:900px){.layout{grid-template-columns:1fr}.two{grid-template-columns:1fr}.shell{padding:14px}.clip-row{grid-template-columns:1fr 1fr}.clip-row>div:first-child{grid-column:1/-1}.top{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="brand"><div class="logo">▶</div><div><h1>Video Studio</h1><p>DeepSeek Harness 本地视频制作工作台</p></div></div>
+    <div class="actions"><span id="status" class="status">正在检查本地环境…</span><button id="refresh">刷新</button></div>
+  </header>
+  <div class="layout">
+    <aside>
+      <section class="panel">
+        <h2>创建项目</h2>
+        <form id="create-form" class="stack">
+          <div><label>项目名称</label><input id="new-title" placeholder="例如：TikTok 拉新视频 001" required></div>
+          <div><label>画幅</label><select id="new-ratio"><option value="9:16">9:16 竖屏</option><option value="16:9">16:9 横屏</option><option value="1:1">1:1 方形</option></select></div>
+          <div><label>创作简报（可选）</label><textarea id="new-brief" placeholder="目标用户、视频主题、时长、风格要求…"></textarea></div>
+          <button class="primary" type="submit">创建项目</button>
+        </form>
+      </section>
+      <section class="panel"><h2>项目列表</h2><div id="projects" class="empty">还没有项目</div></section>
+    </aside>
+    <main>
+      <section id="no-project" class="panel"><div class="empty">先创建或选择一个项目。也可以直接在 DeepSeek Harness 对话中让 AI 调用 Video Studio 工具。</div></section>
+      <div id="workspace" class="hidden">
+        <section class="panel">
+          <div class="row"><div><h2 id="project-title">项目</h2><div id="project-meta" class="muted small"></div></div><div class="actions" style="justify-content:flex-end"><button id="reload-project">重新读取</button><button id="open-workbench">工作台地址</button></div></div>
+        </section>
+        <section class="panel">
+          <h2>导入素材</h2>
+          <div class="row">
+            <div><label>本机文件绝对路径</label><input id="asset-path" placeholder="例如：D:\Videos\clip01.mp4 或 /home/user/video.mp4"></div>
+            <div style="max-width:150px"><label>素材类型</label><select id="asset-role"><option value="video">视频</option><option value="image">图片</option><option value="audio">音频</option></select></div>
+            <div style="max-width:110px"><button id="import-asset" class="primary">导入</button></div>
+          </div>
+          <p class="muted small">只能导入允许目录中的文件。默认允许当前工作目录和用户主目录；不修改原素材。</p>
+          <div id="assets"><div class="empty">暂无素材</div></div>
+        </section>
+        <section class="panel">
+          <div class="row"><div><h2>剪辑时间线</h2><div class="muted small">片段按列表顺序播放。视频填写源入点/出点；图片填写显示时长。</div></div><div style="max-width:150px"><button id="add-clip">添加片段</button></div></div>
+          <div id="clips"><div class="empty">导入素材后添加片段</div></div>
+          <div class="two" style="margin-top:14px">
+            <div><label>背景音乐</label><select id="music-select"><option value="">不添加</option></select></div>
+            <div><label>旁白音轨</label><select id="voice-select"><option value="">不添加</option></select></div>
+            <div><label>原视频声音（0–2）</label><input id="original-volume" type="number" min="0" max="2" step="0.05" value="1"></div>
+            <div><label>音乐音量（0–2）</label><input id="music-volume" type="number" min="0" max="2" step="0.05" value="0.18"></div>
+            <div><label>旁白音量（0–2）</label><input id="voice-volume" type="number" min="0" max="2" step="0.05" value="1"></div>
+            <div><label>画面适配</label><select id="fit"><option value="crop">填满画面（裁切）</option><option value="contain">完整显示（留黑边）</option></select></div>
+          </div>
+          <div class="actions" style="margin-top:14px"><button id="save-timeline" class="primary">保存时间线</button></div>
+        </section>
+        <section class="panel">
+          <h2>字幕（SRT）</h2>
+          <label>粘贴完整 SRT 内容</label><textarea id="srt" placeholder="1\n00:00:00,000 --> 00:00:02,000\n这里是字幕内容"></textarea>
+          <div class="row" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center;margin:0"><input id="burn-subs" type="checkbox" style="width:auto">烧录到视频画面</label><button id="save-subs" style="max-width:130px">保存字幕</button></div>
+        </section>
+        <section class="panel">
+          <h2>渲染任务</h2>
+          <div class="row"><div><label>输出文件名</label><input id="output-name" value="tiktok-video"></div><div style="max-width:130px"><button id="render" class="primary">开始渲染</button></div></div>
+          <div id="job" class="notice hidden" style="margin-top:14px"><div id="job-title">任务状态</div><div class="progress"><i id="job-progress"></i></div><div id="job-detail" class="small"></div></div>
+        </section>
+        <section class="panel output"><h2>成片</h2><div id="outputs"><div class="empty">还没有成片</div></div></section>
+      </div>
+      <div id="message" class="notice hidden" role="status"></div>
+    </main>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+let currentProject = null;
+let projectRevision = null;
+let assets = [];
+let currentJob = null;
+let pollHandle = null;
+
+async function api(url, options = {}) {
+  const response = await fetch(url, { ...options, headers: { ...(options.body ? { 'content-type': 'application/json' } : {}), ...(options.headers || {}) } });
+  const data = response.status === 204 ? null : await response.json();
+  if (!response.ok) throw new Error(data?.error || `请求失败：HTTP ${response.status}`);
+  return data;
+}
+function showMessage(message, error = false) {
+  $('message').textContent = message;
+  $('message').classList.remove('hidden');
+  $('message').classList.toggle('error', error);
+  window.clearTimeout(showMessage.timer);
+  showMessage.timer = window.setTimeout(() => $('message').classList.add('hidden'), 6500);
+}
+function fmtBytes(bytes) { if (!bytes) return '0 B'; const units=['B','KB','MB','GB']; let n=bytes,i=0; while(n>=1024&&i<3){n/=1024;i++;} return `${n.toFixed(i?1:0)} ${units[i]}`; }
+function fmtDuration(value) { if (!Number.isFinite(value)) return '未知'; const m=Math.floor(value/60),s=(value%60).toFixed(1); return `${m}:${String(s).padStart(4,'0')}`; }
+
+async function refreshStatus() {
+  try {
+    const data = await api('/api/status');
+    $('status').textContent = data.ready ? `FFmpeg / FFprobe 已就绪 · ${data.workbenchUrl}` : '媒体引擎不可用';
+    $('status').classList.toggle('good', data.ready);
+    if (!data.ready) showMessage('请安装 FFmpeg 7+ 和 FFprobe 7+，并确保它们位于 PATH。', true);
+  } catch (error) { $('status').textContent = error.message; }
+}
+async function refreshProjects() {
+  const projects = await api('/api/projects');
+  const root = $('projects'); root.replaceChildren();
+  if (!projects.length) { root.className='empty'; root.textContent='还没有项目'; return; }
+  root.className='';
+  for (const project of projects) {
+    const button = document.createElement('button'); button.className = `project-item${currentProject?.id===project.id?' active':''}`;
+    const title = document.createElement('strong'); title.textContent = project.title;
+    const meta = document.createElement('span'); meta.textContent = `${project.id} · revision ${project.revision} · ${project.assetCount} 个素材`;
+    button.append(title,meta); button.addEventListener('click',()=>loadProject(project.id)); root.append(button);
+  }
+}
+async function loadProject(projectId) {
+  currentProject = await api(`/api/projects/${encodeURIComponent(projectId)}`);
+  projectRevision = currentProject.revision; assets = currentProject.assets || [];
+  $('no-project').classList.add('hidden'); $('workspace').classList.remove('hidden');
+  $('project-title').textContent = currentProject.title;
+  $('project-meta').textContent = `${currentProject.id} · revision ${currentProject.revision} · ${currentProject.output.width}×${currentProject.output.height} · ${currentProject.output.fps} fps`;
+  renderAssets(); renderAudioSelects(); renderClips(); renderOutputs();
+  $('srt').value = currentProject.timeline.subtitles ? await fetch(`/api/projects/${currentProject.id}/subtitles`).then(response => response.text()) : '';
+  $('burn-subs').checked = Boolean(currentProject.timeline.subtitles?.burnIn);
+  await refreshProjects();
+}
+function renderAssets() {
+  const root=$('assets'); root.replaceChildren();
+  if (!assets.length) { root.className='empty'; root.textContent='暂无素材'; return; }
+  root.className='';
+  for (const asset of assets) {
+    const card=document.createElement('div');card.className='asset';
+    const title=document.createElement('strong');title.textContent=`${asset.role.toUpperCase()} · ${asset.name}`;
+    const detail=document.createElement('div');detail.className='muted small';detail.textContent=`${asset.media?.duration?fmtDuration(asset.media.duration):'时长未知'} · ${asset.media?.video?.width||'—'}×${asset.media?.video?.height||'—'} · ${fmtBytes(asset.size)}`;
+    const id=document.createElement('code');id.textContent=asset.id;
+    card.append(title,detail,id);root.append(card);
+  }
+}
+function renderAudioSelects() {
+  for (const select of [$('music-select'),$('voice-select')]) {
+    const old=select.value;select.replaceChildren(new Option('不添加',''));
+    for (const asset of assets.filter(item=>item.role==='audio')) select.add(new Option(`${asset.name} (${asset.id})`,asset.id));
+    if ([...select.options].some(option=>option.value===old)) select.value=old;
+  }
+  $('music-select').value=currentProject.timeline.musicAssetId||'';
+  $('voice-select').value=currentProject.timeline.voiceoverAssetId||'';
+  $('original-volume').value=currentProject.timeline.originalAudioVolume??1;
+  $('music-volume').value=currentProject.timeline.musicVolume??0.18;
+  $('voice-volume').value=currentProject.timeline.voiceoverVolume??1;
+  $('fit').value=currentProject.timeline.fit||'crop';
+}
+function addClipRow(clip = {}) {
+  const root=$('clips'); if (root.querySelector('.empty')) root.replaceChildren();
+  const row=document.createElement('div');row.className='clip-row';
+  const assetBox=document.createElement('div');const assetLabel=document.createElement('label');assetLabel.textContent='视频 / 图片素材';const assetSelect=document.createElement('select');
+  for (const asset of assets.filter(item=>['video','image'].includes(item.role))) assetSelect.add(new Option(`${asset.name} · ${asset.role}`,asset.id));
+  assetSelect.value=clip.assetId||'';assetBox.append(assetLabel,assetSelect);
+  const fields=[];
+  for (const [label,key,value,step] of [['入点（秒）','sourceIn',clip.sourceIn??0,'0.1'],['出点（秒）','sourceOut',clip.sourceOut??'','0.1'],['倍速','speed',clip.speed??1,'0.05']]) {
+    const box=document.createElement('div');const l=document.createElement('label');l.textContent=label;const input=document.createElement('input');input.type='number';input.step=step;input.min='0';input.value=value;box.append(l,input);fields.push({key,input,box});
+  }
+  const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.title='移除片段';remove.addEventListener('click',()=>{row.remove();if(!$('clips').children.length)$('clips').innerHTML='<div class="empty">时间线为空</div>';});
+  row.append(assetBox,...fields.map(x=>x.box),remove);
+  row._fields={assetSelect,fields};
+  $('clips').append(row);
+  const selected=assets.find(item=>item.id===assetSelect.value);
+  if(selected?.role==='image') { fields[1].input.placeholder='图片不用填出点'; fields[0].input.value=0; }
+}
+function renderClips() {
+  const root=$('clips');root.replaceChildren();
+  const clips=currentProject.timeline.clips||[];
+  if (!clips.length) { root.className='';root.innerHTML='<div class="empty">时间线为空，点击“添加片段”开始</div>';return; }
+  root.className=''; for(const clip of clips)addClipRow(clip);
+}
+function collectClips() {
+  return [...$('clips').querySelectorAll('.clip-row')].map(row=>{
+    const fields=Object.fromEntries(row._fields.fields.map(field=>[field.key,field.input.value]));
+    const asset=assets.find(item=>item.id===row._fields.assetSelect.value);
+    if(!asset)throw new Error('请选择有效的视频或图片素材。');
+    const clip={assetId:asset.id,sourceIn:Number(fields.sourceIn||0),speed:Number(fields.speed||1)};
+    if(asset.role==='image') clip.duration=Number(fields.sourceOut||5);
+    else clip.sourceOut=Number(fields.sourceOut||asset.media?.duration||0);
+    return clip;
+  });
+}
+function renderOutputs() {
+  const root=$('outputs');root.replaceChildren();const outputs=currentProject.outputs||[];
+  if(!outputs.length){root.className='empty';root.textContent='还没有成片';}else root.className='';
+  for(const output of outputs){
+    const box=document.createElement('div');box.style.marginBottom='16px';
+    const title=document.createElement('div');title.className='row';const name=document.createElement('strong');name.textContent=output.name;const meta=document.createElement('span');meta.className='muted small';meta.textContent=`${fmtDuration(output.duration)} · ${output.width}×${output.height} · ${fmtBytes(output.size)}`;title.append(name,meta);
+    const video=document.createElement('video');video.controls=true;video.preload='metadata';video.src=output.url;
+    const link=document.createElement('a');link.href=output.url;link.download=output.name;link.textContent='打开 / 保存视频';link.className='small';link.style.color='var(--accent)';
+    box.append(title,video,link);root.append(box);
+  }
+  if(currentProject.timeline.subtitles?.url){const subtitle=document.createElement('a');subtitle.href=currentProject.timeline.subtitles.url;subtitle.download='subtitles.srt';subtitle.textContent='下载 SRT 字幕';subtitle.className='small';subtitle.style.color='var(--accent)';root.append(subtitle);
+  }
+}
+async function refreshProject() { if(currentProject) await loadProject(currentProject.id); else await refreshProjects(); }
+
+$('create-form').addEventListener('submit',async event=>{event.preventDefault();try{const project=await api('/api/projects',{method:'POST',body:JSON.stringify({title:$('new-title').value,aspectRatio:$('new-ratio').value,brief:$('new-brief').value})});$('new-title').value='';$('new-brief').value='';await loadProject(project.id);showMessage('项目创建成功。');}catch(error){showMessage(error.message,true);}});
+$('refresh').addEventListener('click',async()=>{try{await refreshStatus();await refreshProjects();if(currentProject)await refreshProject();}catch(error){showMessage(error.message,true);}});
+$('reload-project').addEventListener('click',()=>refreshProject().catch(error=>showMessage(error.message,true)));
+$('open-workbench').addEventListener('click',()=>showMessage(`当前工作台地址：http://127.0.0.1:${location.port||4174}`));
+$('import-asset').addEventListener('click',async()=>{try{if(!currentProject)throw new Error('请先选择项目。');const result=await api(`/api/projects/${currentProject.id}/assets`,{method:'POST',body:JSON.stringify({sourcePath:$('asset-path').value,role:$('asset-role').value})});$('asset-path').value='';await loadProject(currentProject.id);showMessage(`素材导入成功：${result.asset.name}`);}catch(error){showMessage(error.message,true);}});
+$('add-clip').addEventListener('click',()=>{if(!assets.some(item=>['video','image'].includes(item.role))){showMessage('请先导入视频或图片素材。',true);return;}addClipRow();});
+$('save-timeline').addEventListener('click',async()=>{try{const clips=collectClips();const result=await api(`/api/projects/${currentProject.id}/timeline`,{method:'PUT',body:JSON.stringify({expectedRevision:projectRevision,clips,musicAssetId:$('music-select').value||null,voiceoverAssetId:$('voice-select').value||null,originalAudioVolume:Number($('original-volume').value),musicVolume:Number($('music-volume').value),voiceoverVolume:Number($('voice-volume').value),fit:$('fit').value})});await loadProject(currentProject.id);showMessage(`时间线已保存，共 ${result.clipCount} 个片段，预计时长 ${fmtDuration(result.duration)}。`);}catch(error){showMessage(error.message,true);}});
+$('save-subs').addEventListener('click',async()=>{try{const result=await api(`/api/projects/${currentProject.id}/subtitles`,{method:'POST',body:JSON.stringify({expectedRevision:projectRevision,srtContent:$('srt').value,burnIn:$('burn-subs').checked})});await loadProject(currentProject.id);showMessage(`字幕已保存，revision ${result.revision}。`);}catch(error){showMessage(error.message,true);}});
+$('render').addEventListener('click',async()=>{try{const result=await api(`/api/projects/${currentProject.id}/render`,{method:'POST',body:JSON.stringify({outputName:$('output-name').value})});currentJob=result.jobId;$('job').classList.remove('hidden');$('job-title').textContent=`任务 ${result.jobId}：已提交`;$('job-detail').textContent='等待渲染…';if(pollHandle)clearInterval(pollHandle);pollJob();pollHandle=setInterval(pollJob,1500);}catch(error){showMessage(error.message,true);}});
+async function pollJob(){if(!currentJob)return;try{const job=await api(`/api/jobs/${currentJob}`);$('job-title').textContent=`${job.status} · ${job.stage}`;$('job-progress').style.width=`${job.progress||0}%`;$('job-detail').textContent=job.error||`${job.progress||0}%`+(job.result?.output?.name?` · ${job.result.output.name}`:'');if(['completed','failed','cancelled','interrupted'].includes(job.status)){clearInterval(pollHandle);pollHandle=null;currentJob=null;await refreshProject();if(job.status==='completed')showMessage('视频渲染完成，已更新成片列表。');else showMessage(job.error||`任务状态：${job.status}`,true);}}catch(error){clearInterval(pollHandle);pollHandle=null;showMessage(error.message,true);}}
+
+refreshStatus();refreshProjects().catch(error=>showMessage(error.message,true));
+</script>
+</body>
+</html>

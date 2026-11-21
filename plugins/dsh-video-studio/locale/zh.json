@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Video Studio 视频制作",
+    "description": "让 AI 在 DeepSeek Harness 中管理素材、编排时间线、添加字幕和音轨，并调用 FFmpeg 渲染视频。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

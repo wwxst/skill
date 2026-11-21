@@ -1,0 +1,130 @@
+import http from 'node:http';
+import path from 'node:path';
+import { createReadStream } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { VideoStudioError } from './errors.js';
+
+const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
+
+function sendJson(response, status, value) {
+  const body = Buffer.from(JSON.stringify(value));
+  response.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': body.length,
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+  });
+  response.end(body);
+}
+
+async function readBody(request, limit = 10 * 1024 * 1024) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > limit) throw new VideoStudioError('请求内容太大。', 'BODY_TOO_LARGE');
+    chunks.push(chunk);
+  }
+  if (size === 0) return {};
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  catch { throw new VideoStudioError('请求必须是有效的 JSON。', 'INVALID_JSON'); }
+}
+
+function assertLocalRequest(request, port) {
+  const host = String(request.headers.host || '').toLowerCase();
+  const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `127.0.0.1`, `localhost`]);
+  if (!allowedHosts.has(host)) throw new VideoStudioError('只允许通过本机地址访问 Video Studio。', 'HOST_NOT_ALLOWED');
+  const origin = request.headers.origin;
+  if (origin && origin !== `http://127.0.0.1:${port}` && origin !== `http://localhost:${port}`) {
+    throw new VideoStudioError('跨站请求已被拒绝。', 'ORIGIN_NOT_ALLOWED');
+  }
+}
+
+function contentType(fileName) {
+  const ext = path.extname(fileName).toLowerCase();
+  return ({ '.mp4': 'video/mp4', '.srt': 'text/plain; charset=utf-8', '.json': 'application/json; charset=utf-8' })[ext] || 'application/octet-stream';
+}
+
+async function serveOutput(request, response, engine, projectId, fileName) {
+  const filePath = await engine.store.resolveProjectOutput(projectId, fileName);
+  const info = await stat(filePath);
+  const range = request.headers.range;
+  response.setHeader('accept-ranges', 'bytes');
+  response.setHeader('content-type', contentType(fileName));
+  response.setHeader('cache-control', 'no-store');
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!match) { response.writeHead(416); response.end(); return; }
+    const start = match[1] ? Number(match[1]) : 0;
+    const end = match[2] ? Math.min(Number(match[2]), info.size - 1) : info.size - 1;
+    if (start > end || start >= info.size) { response.writeHead(416); response.end(); return; }
+    response.writeHead(206, { 'content-range': `bytes ${start}-${end}/${info.size}`, 'content-length': end - start + 1 });
+    createReadStream(filePath, { start, end }).pipe(response);
+    return;
+  }
+  response.writeHead(200, { 'content-length': info.size });
+  createReadStream(filePath).pipe(response);
+}
+
+export async function startServer(engine, { port = 4174, host = '127.0.0.1' } = {}) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new VideoStudioError('工作台端口必须在 1–65535 之间。', 'INVALID_PORT');
+  const server = http.createServer(async (request, response) => {
+    try {
+      assertLocalRequest(request, port);
+      const url = new URL(request.url || '/', `http://${request.headers.host || `127.0.0.1:${port}`}`);
+      const pathname = decodeURIComponent(url.pathname);
+      const method = request.method || 'GET';
+
+      if (method === 'GET' && pathname === '/') {
+        const html = await readFile(path.join(PUBLIC_DIR, 'index.html'));
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': html.length, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'" });
+        response.end(html);
+        return;
+      }
+      if (method === 'GET' && pathname === '/api/status') return sendJson(response, 200, await engine.status());
+      if (method === 'GET' && pathname === '/api/projects') return sendJson(response, 200, await engine.listProjects());
+      if (method === 'POST' && pathname === '/api/projects') return sendJson(response, 201, await engine.createProject(await readBody(request)));
+
+      const assetMatch = /^\/api\/projects\/([^/]+)\/assets$/.exec(pathname);
+      if (method === 'POST' && assetMatch) return sendJson(response, 201, await engine.importAsset({ projectId: assetMatch[1], ...(await readBody(request)) }));
+      const timelineMatch = /^\/api\/projects\/([^/]+)\/timeline$/.exec(pathname);
+      if (method === 'PUT' && timelineMatch) return sendJson(response, 200, await engine.updateTimeline({ projectId: timelineMatch[1], ...(await readBody(request)) }));
+      const subtitleMatch = /^\/api\/projects\/([^/]+)\/subtitles$/.exec(pathname);
+      if (method === 'GET' && subtitleMatch) { response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }); response.end(await engine.store.getSubtitles(subtitleMatch[1])); return; }
+      if (method === 'POST' && subtitleMatch) return sendJson(response, 200, await engine.setSubtitles({ projectId: subtitleMatch[1], ...(await readBody(request, 2_500_000)) }));
+      const renderMatch = /^\/api\/projects\/([^/]+)\/render$/.exec(pathname);
+      if (method === 'POST' && renderMatch) return sendJson(response, 202, await engine.submitRender({ projectId: renderMatch[1], ...(await readBody(request)) }));
+      const outputsMatch = /^\/api\/projects\/([^/]+)\/outputs$/.exec(pathname);
+      if (method === 'GET' && outputsMatch) return sendJson(response, 200, await engine.outputList(outputsMatch[1]));
+      const projectMatch = /^\/api\/projects\/([^/]+)$/.exec(pathname);
+      if (method === 'GET' && projectMatch) return sendJson(response, 200, await engine.getProject(projectMatch[1]));
+      const jobCancelMatch = /^\/api\/jobs\/([^/]+)\/cancel$/.exec(pathname);
+      if (method === 'POST' && jobCancelMatch) { await readBody(request); return sendJson(response, 200, await engine.cancelJob(jobCancelMatch[1])); }
+      const jobMatch = /^\/api\/jobs\/([^/]+)$/.exec(pathname);
+      if (method === 'GET' && jobMatch) return sendJson(response, 200, await engine.getJob(jobMatch[1]));
+      const outputMatch = /^\/files\/([^/]+)\/([^/]+)$/.exec(pathname);
+      if (method === 'GET' && outputMatch) return await serveOutput(request, response, engine, outputMatch[1], outputMatch[2]);
+
+      sendJson(response, 404, { error: '没有这个接口。', code: 'NOT_FOUND' });
+    } catch (error) {
+      const status = error?.code === 'PROJECT_NOT_FOUND' || error?.code === 'JOB_NOT_FOUND' || error?.code === 'ASSET_NOT_FOUND' ? 404
+        : error?.code === 'REVISION_CONFLICT' ? 409
+          : error?.code === 'BODY_TOO_LARGE' ? 413
+            : error?.code === 'HOST_NOT_ALLOWED' || error?.code === 'ORIGIN_NOT_ALLOWED' ? 403
+              : 400;
+      if (!response.headersSent) sendJson(response, status, { error: error?.message || String(error), code: error?.code || 'REQUEST_FAILED' });
+      else response.destroy(error);
+    }
+  });
+
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, host, resolve);
+  });
+  const address = server.address();
+  return {
+    url: `http://${host}:${address.port}`,
+    close: () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
+  };
+}

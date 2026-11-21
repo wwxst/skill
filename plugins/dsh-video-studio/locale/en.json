@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Video Studio",
+    "description": "AI-assisted local video editing, timeline assembly, subtitles, audio mixing, and FFmpeg rendering for DeepSeek Harness.",
+    "detail": "docs/DETAIL.en.md"
+  }
+}
