@@ -114,6 +114,7 @@ export function createStore(config = {}) {
       assets: [],
       timeline: { clips: [], transitions: [], overlays: [], musicAssetId: null, voiceoverAssetId: null, originalAudioVolume: 1, musicVolume: 0.18, voiceoverVolume: 1, subtitles: null },
       outputs: [],
+      storyboard: null,
     };
     await saveProject(project);
     return project;
@@ -133,7 +134,7 @@ export function createStore(config = {}) {
   }
 
   async function importAsset(args) {
-    const { projectId, sourcePath, role = 'video', label } = args;
+    const { projectId, sourcePath, role = 'video', label, metadata = null } = args;
     return withProjectLock(projectId, async () => {
     const project = await readProject(projectId);
     if (!['video', 'image', 'audio'].includes(role)) throw new VideoStudioError('素材类型只能是 video、image 或 audio。', 'INVALID_ARGUMENT');
@@ -164,6 +165,9 @@ export function createStore(config = {}) {
       size: assetStat.size,
       importedAt: new Date().toISOString(),
       media,
+      libraryId: metadata?.libraryId || null,
+      tags: Array.isArray(metadata?.tags) ? metadata.tags.slice(0, 20) : [],
+      sources: Array.isArray(metadata?.sources) ? metadata.sources.slice(0, 10) : [],
     };
     project.assets.push(asset);
     project.revision += 1;
