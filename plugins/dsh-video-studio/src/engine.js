@@ -154,15 +154,17 @@ export async function createEngine(config = {}) {
   }
 
   async function templateSave({ projectId, expectedRevision, name, description = '' }) {
-    const project = await store.getRawProject(projectId);
-    if (expectedRevision !== project.revision) {
-      throw new VideoStudioError('项目版本已变化，请重新读取项目后再保存模板。', 'REVISION_CONFLICT');
-    }
-    try {
-      return await saveTemplateFromProject(store.dataDir, project, { name, description });
-    } catch (error) {
-      throw new VideoStudioError(error.message, 'INVALID_TEMPLATE');
-    }
+    return store.withProjectLock(projectId, async () => {
+      const project = await store.getRawProject(projectId);
+      if (expectedRevision !== project.revision) {
+        throw new VideoStudioError('项目版本已变化，请重新读取项目后再保存模板。', 'REVISION_CONFLICT');
+      }
+      try {
+        return await saveTemplateFromProject(store.dataDir, project, { name, description });
+      } catch (error) {
+        throw new VideoStudioError(error.message, 'INVALID_TEMPLATE');
+      }
+    });
   }
 
   async function templateApply({ projectId, expectedRevision, templateId, assetIds, title, durationPerImage }) {
@@ -229,7 +231,7 @@ export async function createEngine(config = {}) {
     ]);
     return {
       name: 'Video Studio',
-      version: '0.1.0',
+      version: '0.2.0',
       ready: ffmpeg.available && ffprobe.available,
       ffmpeg,
       ffprobe,
