@@ -63,6 +63,7 @@ export function createImageGenerationProvider(config = {}) {
     if (!response.ok) {
       let message = raw.slice(0, 1000);
       try { message = JSON.parse(raw).error?.message || message; } catch { /* Keep response text. */ }
+      message = message.replaceAll(apiKey, '[redacted]');
       const code = response.status === 429 ? 'IMAGE_PROVIDER_RATE_LIMIT' : 'IMAGE_PROVIDER_REQUEST_FAILED';
       throw new VideoStudioError('图片生成服务返回 HTTP ' + response.status + '：' + message, code);
     }

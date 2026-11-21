@@ -312,3 +312,16 @@ test('rejects an expired TikTok OAuth state', async (t) => {
     (error) => error.code === 'TIKTOK_OAUTH_STATE_MISMATCH',
   );
 });
+
+
+test('Pixabay network errors never reveal the API key in returned messages', async () => {
+  const secret = 'pixabay-secret-key';
+  const provider = new PixabayProvider({
+    apiKey: secret,
+    fetchImpl: async (url) => { throw new Error('fetch failed: ' + String(url)); },
+  });
+  await assert.rejects(
+    provider.search({ query: 'city skyline' }),
+    (error) => error.code === 'PIXABAY_NETWORK_ERROR' && !error.message.includes(secret) && error.message.includes('[redacted]'),
+  );
+});

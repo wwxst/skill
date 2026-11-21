@@ -134,10 +134,11 @@ export class PixabayProvider {
     try {
       response = await this.fetchImpl(url, { signal: signal || AbortSignal.timeout(15000) });
     } catch (error) {
-      throw new VideoStudioError('Pixabay 请求失败：' + error.message, 'PIXABAY_NETWORK_ERROR', { cause: error });
+      const message = String(error?.message || '网络错误').replaceAll(this.apiKey, '[redacted]');
+      throw new VideoStudioError('Pixabay 请求失败：' + message, 'PIXABAY_NETWORK_ERROR');
     }
     if (!response.ok) {
-      const message = (await response.text()).slice(0, 500);
+      const message = (await response.text()).slice(0, 500).replaceAll(this.apiKey, '[redacted]');
       const code = response.status === 429 ? 'PIXABAY_RATE_LIMIT' : 'PIXABAY_REQUEST_FAILED';
       throw new VideoStudioError('Pixabay 返回 HTTP ' + response.status + '：' + message, code);
     }
