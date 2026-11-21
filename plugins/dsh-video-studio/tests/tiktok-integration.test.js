@@ -14,7 +14,9 @@ test('syncs TikTok Display API metrics into the matching project without inventi
     allowedRoots: [root],
     tiktokAccessToken: 'test-access-token',
     fetchImpl: async (url, options) => {
-      assert.match(String(url), /^https:\/\/open\\.tiktokapis\\.com\/v2\/video\/list\\//);
+      const requestUrl = new URL(String(url));
+      assert.equal(requestUrl.hostname, 'open.tiktokapis.com');
+      assert.equal(requestUrl.pathname, '/v2/video/list/');
       assert.equal(options.headers.authorization, 'Bearer test-access-token');
       return new Response(JSON.stringify({
         data: {
