@@ -6,7 +6,8 @@ DeepSeek Harness
        └─ Host plugin (index.js)
             ├─ ctx.tools.register(...) — AI 工具
             ├─ ctx.systemPrompt.section(...) — 工作流程提示
-            ├─ Engine — 项目、素材、时间线、任务
+            ├─ Engine — 项目、素材、时间线、模板、任务
+            ├─ Template Library — 内置预设与用户保存的 JSON 模板
             ├─ Local HTTP server — 127.0.0.1 工作台
             └─ FFmpeg / FFprobe — 实际媒体执行
 ```
@@ -15,7 +16,8 @@ DeepSeek Harness
 
 - Harness 负责对话、模型推理、工具调度和插件生命周期。
 - 插件负责视频项目、素材路径校验、时间线数据、任务状态和本地工作台。
-- FFmpeg/FFprobe 负责媒体探测、片段编码、拼接、音频混合、字幕烧录和 MP4 输出。
+- Template Library 负责模板列举、保存、素材槽位映射和时间线参数编译；模板只描述内容结构，不执行媒体处理。
+- FFmpeg/FFprobe 负责媒体探测、片段编码、图片镜头运动、xfade/acrossfade 转场、文字叠加、音频混合、字幕烧录和 MP4 输出。
 - 插件不修改 Harness 核心，不依赖 EAC 的运行时代码。
 
 ## 持久化结构
@@ -30,11 +32,21 @@ DeepSeek Harness
       assets/
       outputs/
       tmp/
+  templates/
+    tpl_<id>.json
   jobs/
     job_<id>.json
+  library/
+    index.json
+    assets/
+    cache/
+  analytics/
+    performance.json
+  integrations/
+    tiktok-token.json  # version 2：accounts[accountId] 独立令牌与 OAuth state
 ```
 
-`project.json` 保存项目元数据、素材引用、revision、时间线和成片记录。原素材导入时复制到项目 `assets`，源文件不修改。每次修改时间线或字幕都要求携带当前 revision，防止旧数据覆盖新数据。
+`project.json` 保存项目元数据、素材引用、revision、时间线和成片记录。原素材导入时复制到项目 `assets`，源文件不修改。每次修改时间线或字幕都要求携带当前 revision，防止旧数据覆盖新数据。中央素材库按 SHA-256 管理文件和来源授权；`analytics/performance.json` 保存带 accountId 的发布数据快照；TikTok OAuth 令牌只保存在本机 `integrations/tiktok-token.json`，按 accountId 分隔多个账号，文件访问权限限制为当前用户。
 
 ## 长任务
 

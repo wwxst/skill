@@ -46,6 +46,47 @@
           <div id="assets"><div class="empty">暂无素材</div></div>
         </section>
         <section class="panel">
+          <h2>素材搜索与本地素材库</h2>
+          <div class="row">
+            <div><label>搜索关键词</label><input id="media-query" placeholder="例如：cinematic city night"></div>
+            <div style="max-width:140px"><label>素材类型</label><select id="media-type"><option value="image">图片</option><option value="video">视频</option></select></div>
+            <div style="max-width:110px"><button id="media-search" class="primary">搜索 Pixabay</button></div>
+          </div>
+          <div id="media-results" class="empty">搜索结果会显示在这里，并保留来源和作者信息</div>
+          <div class="divider"></div>
+          <div class="row">
+            <div><label>本地素材库关键词</label><input id="library-query" placeholder="名称、标签、作者"></div>
+            <div style="max-width:110px"><button id="library-refresh">查找素材</button></div>
+          </div>
+          <div id="library-results" class="empty">本地素材库为空</div>
+        </section>
+        <section class="panel">
+          <h2>AI 镜头清单</h2>
+          <p class="muted small">让 Harness AI 根据选题和脚本规划镜头后，把 JSON 保存到这里；每个镜头需要 visualPrompt，可选 assetId、searchQuery、narration、overlayText 等字段。</p>
+          <label>镜头清单 JSON</label>
+          <textarea id="storyboard-json" placeholder='{"topic":"视频主题","script":"旁白稿","shots":[{"visualPrompt":"夜晚城市街道，电影感","searchQuery":"cinematic city night","duration":4,"overlayText":"开场标题"}]}'></textarea>
+          <div class="actions">
+            <button id="storyboard-load">读取镜头清单</button>
+            <button id="storyboard-save" class="primary">保存镜头清单</button>
+            <button id="storyboard-apply">生成时间线</button>
+          </div>
+          <div class="divider"></div>
+          <div class="row">
+            <div><label>按镜头生成图片提示词</label><input id="image-prompt" placeholder="描述要生成的画面"></div>
+            <div style="max-width:100px"><label>镜头序号</label><input id="image-shot-index" type="number" min="1" placeholder="1"></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <label style="display:flex;gap:8px;align-items:center;margin:0"><input id="image-cost-confirm" type="checkbox" style="width:auto">我已确认图片生成可能产生 API 费用</label>
+            <button id="image-generate" style="max-width:160px">生成并导入图片</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>成片质量检查</h2>
+          <p class="muted small">渲染完成后会自动执行一次基础检查，也可以在这里重新检查最新成片。</p>
+          <button id="quality-check">检查最新成片</button>
+          <pre id="quality-result" class="notice hidden" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+        </section>
+        <section class="panel">
           <div class="row"><div><h2>剪辑时间线</h2><div class="muted small">片段按列表顺序播放。视频填写源入点/出点；图片填写显示时长。</div></div><div style="max-width:150px"><button id="add-clip">添加片段</button></div></div>
           <div id="clips"><div class="empty">导入素材后添加片段</div></div>
           <div class="two" style="margin-top:14px">
@@ -124,7 +165,7 @@ async function loadProject(projectId) {
   $('no-project').classList.add('hidden'); $('workspace').classList.remove('hidden');
   $('project-title').textContent = currentProject.title;
   $('project-meta').textContent = `${currentProject.id} · revision ${currentProject.revision} · ${currentProject.output.width}×${currentProject.output.height} · ${currentProject.output.fps} fps`;
-  renderAssets(); renderAudioSelects(); renderClips(); renderOutputs();
+  renderAssets(); renderAudioSelects(); renderClips(); renderOutputs(); loadStoryboard().catch(()=>{}); refreshLibrary().catch(()=>{});
   $('srt').value = currentProject.timeline.subtitles ? await fetch(`/api/projects/${currentProject.id}/subtitles`).then(response => response.text()) : '';
   $('burn-subs').checked = Boolean(currentProject.timeline.subtitles?.burnIn);
   await refreshProjects();
@@ -214,7 +255,89 @@ $('save-subs').addEventListener('click',async()=>{try{const result=await api(`/a
 $('render').addEventListener('click',async()=>{try{const result=await api(`/api/projects/${currentProject.id}/render`,{method:'POST',body:JSON.stringify({outputName:$('output-name').value})});currentJob=result.jobId;$('job').classList.remove('hidden');$('job-title').textContent=`任务 ${result.jobId}：已提交`;$('job-detail').textContent='等待渲染…';if(pollHandle)clearInterval(pollHandle);pollJob();pollHandle=setInterval(pollJob,1500);}catch(error){showMessage(error.message,true);}});
 async function pollJob(){if(!currentJob)return;try{const job=await api(`/api/jobs/${currentJob}`);$('job-title').textContent=`${job.status} · ${job.stage}`;$('job-progress').style.width=`${job.progress||0}%`;$('job-detail').textContent=job.error||`${job.progress||0}%`+(job.result?.output?.name?` · ${job.result.output.name}`:'');if(['completed','failed','cancelled','interrupted'].includes(job.status)){clearInterval(pollHandle);pollHandle=null;currentJob=null;await refreshProject();if(job.status==='completed')showMessage('视频渲染完成，已更新成片列表。');else showMessage(job.error||`任务状态：${job.status}`,true);}}catch(error){clearInterval(pollHandle);pollHandle=null;showMessage(error.message,true);}}
 
-refreshStatus();refreshProjects().catch(error=>showMessage(error.message,true));
+async function searchMedia() {
+  try {
+    const result=await api('/api/media/search',{method:'POST',body:JSON.stringify({query:$('media-query').value,mediaType:$('media-type').value,orientation:'vertical',perPage:12})});
+    const root=$('media-results');root.replaceChildren();root.className='';
+    if(!result.results?.length){root.className='empty';root.textContent='没有找到素材';return;}
+    for(const item of result.results){
+      const card=document.createElement('div');card.className='asset';
+      const title=document.createElement('strong');title.textContent=String(item.mediaType).toUpperCase()+' · '+(item.title||item.id);
+      const detail=document.createElement('div');detail.className='muted small';detail.textContent='作者：'+(item.author||'未知')+' · '+(item.width||'—')+'×'+(item.height||'—')+' · '+(item.tags||[]).join(', ');
+      const source=document.createElement('a');source.href=item.sourceUrl;source.target='_blank';source.rel='noopener noreferrer';source.textContent='Pixabay 来源与授权页面';source.className='small';source.style.color='var(--accent)';
+      const button=document.createElement('button');button.textContent='下载到本地素材库';button.addEventListener('click',async()=>{try{const saved=await api('/api/media/download',{method:'POST',body:JSON.stringify({mediaId:item.id,mediaType:item.mediaType})});showMessage('已保存到素材库：'+saved.name);await refreshLibrary();}catch(error){showMessage(error.message,true);}});
+      card.append(title,detail,source,button);root.append(card);
+    }
+    showMessage('Pixabay 搜索完成：'+result.totalHits+' 条结果'+(result.cacheHit?'（24 小时缓存）':''));
+  } catch(error){showMessage(error.message,true);}
+}
+async function refreshLibrary(){
+  try{
+    const result=await api('/api/library?query='+encodeURIComponent($('library-query').value||'')+'&limit=50');
+    const root=$('library-results');root.replaceChildren();
+    if(!result.items?.length){root.className='empty';root.textContent='本地素材库暂无匹配素材';return;}
+    root.className='';
+    for(const item of result.items){
+      const card=document.createElement('div');card.className='asset';
+      const title=document.createElement('strong');title.textContent=String(item.role).toUpperCase()+' · '+item.name;
+      const sources=(item.sources||[]).map(source=>source.provider+(source.author?' · '+source.author:'')).join(' / ');
+      const detail=document.createElement('div');detail.className='muted small';detail.textContent=fmtBytes(item.size)+' · 标签：'+((item.tags||[]).join(', ')||'无')+' · 来源：'+(sources||'本地');
+      const button=document.createElement('button');button.textContent='导入当前项目';button.disabled=!currentProject;
+      button.addEventListener('click',async()=>{try{const result=await api('/api/library/import',{method:'POST',body:JSON.stringify({projectId:currentProject.id,libraryId:item.id})});await loadProject(currentProject.id);showMessage('素材已导入项目：'+result.asset.name);}catch(error){showMessage(error.message,true);}});
+      card.append(title,detail,button);root.append(card);
+    }
+  }catch(error){showMessage(error.message,true);}
+}
+async function loadStoryboard(){
+  if(!currentProject)return;
+  try{
+    const result=await api('/api/projects/'+currentProject.id+'/storyboard');
+    $('storyboard-json').value=JSON.stringify(result.storyboard,null,2);
+  }catch(error){
+    if(!String(error.message).includes('镜头清单'))showMessage(error.message,true);
+    $('storyboard-json').value='';
+  }
+}
+$('media-search').addEventListener('click',searchMedia);
+$('library-refresh').addEventListener('click',refreshLibrary);
+$('storyboard-load').addEventListener('click',()=>loadStoryboard().catch(error=>showMessage(error.message,true)));
+$('storyboard-save').addEventListener('click',async()=>{
+  try{
+    const value=JSON.parse($('storyboard-json').value);
+    const result=await api('/api/projects/'+currentProject.id+'/storyboard',{method:'POST',body:JSON.stringify({expectedRevision:projectRevision,...value})});
+    projectRevision=result.revision;showMessage('镜头清单已保存，共 '+result.storyboard.shots.length+' 个镜头。');await loadProject(currentProject.id);
+  }catch(error){showMessage(error.message,true);}
+});
+$('storyboard-apply').addEventListener('click',async()=>{
+  try{
+    const value=JSON.parse($('storyboard-json').value);
+    const hasAllAssets=value.shots.every(shot=>Boolean(shot.assetId));
+    const assetIds=hasAllAssets?value.shots.map(shot=>shot.assetId):undefined;
+    const payload={expectedRevision:projectRevision,fit:'crop'};
+    if(assetIds)payload.assetIds=assetIds;
+    const result=await api('/api/projects/'+currentProject.id+'/storyboard/apply',{method:'POST',body:JSON.stringify(payload)});
+    await loadProject(currentProject.id);showMessage('镜头清单已生成时间线，共 '+result.clipCount+' 个片段。');
+  }catch(error){showMessage(error.message,true);}
+});
+$('image-generate').addEventListener('click',async()=>{
+  try{
+    if(!$('image-cost-confirm').checked)throw new Error('请先确认图片生成可能产生 API 费用。');
+    const payload={prompt:$('image-prompt').value,confirmCost:true};
+    if($('image-shot-index').value)payload.shotIndex=Number($('image-shot-index').value);
+    const result=await api('/api/projects/'+currentProject.id+'/images/generate',{method:'POST',body:JSON.stringify(payload)});
+    $('image-prompt').value='';await loadProject(currentProject.id);await refreshLibrary();showMessage('图片已生成并导入：'+result.asset.name);
+  }catch(error){showMessage(error.message,true);}
+});
+$('quality-check').addEventListener('click',async()=>{
+  try{
+    const result=await api('/api/projects/'+currentProject.id+'/quality',{method:'POST',body:JSON.stringify({})});
+    $('quality-result').textContent=JSON.stringify(result.summary,null,2)+'\n\n'+JSON.stringify(result.findings,null,2);
+    $('quality-result').classList.remove('hidden');
+    showMessage(result.summary.passed?'质量检查完成，没有发现明显警告。':'质量检查发现 '+result.summary.warningCount+' 项警告。');
+  }catch(error){showMessage(error.message,true);}
+}
+);
+refreshStatus();refreshProjects().catch(error=>showMessage(error.message,true));refreshLibrary().catch(()=>{});
 </script>
 </body>
 </html>

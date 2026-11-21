@@ -1,0 +1,60 @@
+{
+  "id": "us-photo-reveal-acquisition",
+  "kind": "preset",
+  "version": 1,
+  "name": "US Photo Reveal · Acquisition Preview",
+  "description": "English-first result → original photo → reveal → result. Video preview only: a real CapCut template and eligible TikTok anchor must be linked separately.",
+  "locale": "en-US",
+  "goal": "acquisition",
+  "format": "photo-result-first",
+  "minAssets": 4,
+  "maxAssets": 4,
+  "requiresCapCutAnchor": true,
+  "slots": [
+    {
+      "duration": 1.4,
+      "caption": "$TITLE",
+      "fallbackTitle": "HOW TO MAKE THIS PHOTO EDIT",
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 1.5,
+      "caption": "START WITH ONE PHOTO",
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "wipeleft",
+        "duration": 0.18
+      }
+    },
+    {
+      "duration": 1.5,
+      "caption": "WATCH THE SWITCH",
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 2.2,
+      "caption": "",
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      }
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "id": "us-photo-memory-recap",
+  "kind": "preset",
+  "version": 1,
+  "name": "US Memory / Camera Roll Recap · Activation Preview",
+  "description": "Personal photo progression for US English audiences, e.g. college year, pet milestones, trip memories; no generically localized city backgrounds.",
+  "locale": "en-US",
+  "goal": "activation",
+  "format": "photo-recap",
+  "minAssets": 6,
+  "maxAssets": 6,
+  "requiresCapCutAnchor": true,
+  "slots": [
+    {
+      "duration": 1.15,
+      "caption": "$TITLE",
+      "fallbackTitle": "THIS YEAR IN PHOTOS",
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 1,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 1,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "dissolve",
+        "duration": 0.18
+      }
+    },
+    {
+      "duration": 1,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 1,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      },
+      "transition": {
+        "type": "cut",
+        "duration": 0
+      }
+    },
+    {
+      "duration": 1.8,
+      "motion": {
+        "type": "none",
+        "intensity": 0.08
+      }
+    }
+  ]
+}

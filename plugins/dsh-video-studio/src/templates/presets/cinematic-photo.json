@@ -1,0 +1,17 @@
+{
+  "id": "cinematic-photo",
+  "kind": "preset",
+  "version": 1,
+  "name": "电影感图片转场",
+  "description": "把 2–12 张图片编排成 9:16 电影感短视频，自动交替推拉镜头并添加淡入转场。",
+  "minAssets": 2,
+  "maxAssets": 12,
+  "durationPerImage": 3.5,
+  "fit": "crop",
+  "intensity": 0.12,
+  "motions": ["zoom-in", "zoom-out", "pan-left", "pan-right"],
+  "transition": {
+    "type": "fade",
+    "duration": 0.45
+  }
+}
