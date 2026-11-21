@@ -59,6 +59,36 @@ export function createToolDefinitions(engine) {
       (args) => engine.getProject(args.projectId), true,
     ),
     definition(
+      'video_template_list',
+      '列出内置和已保存的视频模板。',
+      {}, [],
+      () => engine.templateList(), true,
+    ),
+    definition(
+      'video_template_save',
+      '把当前项目的图片时间线保存成可跨项目复用的模板。保存前必须先读取项目 revision。',
+      {
+        projectId: string('项目 ID'),
+        expectedRevision: number('video_project_get 返回的当前 revision'),
+        name: string('模板名称'),
+        description: string('模板说明，可选'),
+      }, ['projectId', 'expectedRevision', 'name'],
+      (args) => engine.templateSave(args),
+    ),
+    definition(
+      'video_template_apply',
+      '把模板应用到当前项目。assetIds 按模板槽位顺序提供本项目已导入的图片素材 ID；内置电影感模板支持 2–12 张图片。',
+      {
+        projectId: string('项目 ID'),
+        expectedRevision: number('video_project_get 返回的当前 revision'),
+        templateId: string('video_template_list 返回的模板 ID'),
+        assetIds: { type: 'array', minItems: 2, maxItems: 12, items: string('项目内已导入的图片素材 ID') },
+        title: string('可选标题，仅内置电影感模板使用'),
+        durationPerImage: number('内置模板每张图片时长 2–15 秒，默认 3.5 秒'),
+      }, ['projectId', 'expectedRevision', 'templateId', 'assetIds'],
+      (args) => engine.templateApply(args),
+    ),
+    definition(
       'video_asset_import',
       '把本机视频、图片或音频复制到项目素材目录，不修改原文件。sourcePath 必须位于 Video Studio 允许目录中；默认允许用户主目录和当前工作目录，可在插件配置 allowedRoots 扩展。导入后会自动读取媒体信息。',
       {
@@ -77,7 +107,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_timeline_update',
-      '设置项目剪辑时间线。必须先 video_project_get 读取当前 revision，再把 revision 原样传入 expectedRevision，防止覆盖其他修改。clips 按数组顺序依次播放；视频片段使用 sourceIn/sourceOut 和 speed，图片片段使用 duration。可指定背景音乐和旁白素材。',
+      '设置项目剪辑时间线。必须先 video_project_get 读取当前 revision。支持图片推拉/平移动画、片段间转场、动态文字叠加、背景音乐和旁白。',
       {
         projectId: string('项目 ID'),
         expectedRevision: number('video_project_get 返回的当前 revision'),
@@ -92,8 +122,49 @@ export function createToolDefinitions(engine) {
               sourceOut: number('源素材出点秒数，默认素材结尾；视频片段使用'),
               speed: number('播放速度 0.25–4，默认 1；1.5 表示 1.5 倍速'),
               duration: number('图片片段显示时长秒数，图片必填'),
+              fit: enumString('该片段画面适配，可覆盖全局 fit', ['crop', 'contain']),
+              motion: {
+                type: 'object',
+                properties: {
+                  type: enumString('镜头运动', ['none', 'zoom-in', 'zoom-out', 'pan-left', 'pan-right', 'pan-up', 'pan-down']),
+                  intensity: number('运动强度 0.05–0.25，默认 0.12'),
+                },
+                required: ['type'],
+                additionalProperties: false,
+              },
             },
             required: ['assetId'],
+            additionalProperties: false,
+          },
+        },
+        transitions: {
+          type: 'array', maxItems: 99,
+          description: '每两个相邻片段之间一个转场；省略或空数组表示全部硬切。非 cut 转场会产生时间重叠。',
+          items: {
+            type: 'object',
+            properties: {
+              type: enumString('转场类型', ['cut', 'fade', 'dissolve', 'wipeleft', 'wiperight', 'slideleft', 'slideright', 'circleopen', 'circleclose', 'pixelize']),
+              duration: number('转场时长秒数，0–2；cut 必须为 0'),
+            },
+            required: ['type', 'duration'],
+            additionalProperties: false,
+          },
+        },
+        overlays: {
+          type: 'array', maxItems: 20,
+          description: '动态文字叠加，时间范围必须在最终视频时长内。',
+          items: {
+            type: 'object',
+            properties: {
+              text: string('显示文字，最多 200 字'),
+              start: number('开始时间秒数'),
+              end: number('结束时间秒数'),
+              position: enumString('文字位置', ['top', 'center', 'bottom']),
+              animation: enumString('文字动画', ['none', 'fade-in', 'fade-out', 'fade-in-out']),
+              fontSize: number('字号 20–120，默认 56'),
+              color: string('文字颜色，#RRGGBB 格式，默认 #FFFFFF'),
+            },
+            required: ['text', 'start', 'end'],
             additionalProperties: false,
           },
         },
@@ -158,5 +229,5 @@ export const videoStudioInstructions = `你已连接 Video Studio 本地视频�
 推荐流程：video_project_create 创建项目 → video_asset_import 导入素材 → video_project_get 查看素材信息和 revision → video_timeline_update 设置片段与音轨 → 如有字幕则调用 video_subtitles_set → video_render 提交渲染 → 持续调用 video_job_status 直到任务进入终态 → video_output_list 核对成片。
 视频素材和图片素材必须先导入项目，时间线只引用项目内 assetId。视频原声会保留；图片或无原声的视频片段会补静音轨。片段按 clips 数组顺序播放。时间线和字幕修改必须使用最近一次 video_project_get 返回的 revision，出现 REVISION_CONFLICT 时重新读取后再修改。
 导入素材只能使用允许目录中的文件。默认允许当前工作目录和用户主目录；遇到 ASSET_PATH_NOT_ALLOWED 时，不要尝试绕过限制，应提示用户把文件放入允许目录或配置 allowedRoots。
-当前支持基础顺序剪辑、入点/出点、恒定倍速、裁切/留边、背景音乐、旁白混音、SRT 字幕和 MP4 导出。当前不支持自动语音识别、AI 配音、自动选镜头、复杂转场、专业节点调色和原生剪映草稿导出；不要声称这些功能已经完成。SRT 和音频素材需要用户或其他工具提供。
+当前支持基础顺序剪辑、入点/出点、恒定倍速、图片推拉和平移、淡入/擦除/滑动等转场、动态文字叠加、可复用模板、背景音乐、旁白混音、SRT 字幕和 MP4 导出。当前不支持自动语音识别、AI 配音、自动选镜头、专业节点调色和原生剪映草稿导出；不要声称这些功能已经完成。SRT 和音频素材需要用户或其他工具提供。
 渲染任务返回 jobId 后必须轮询任务状态，不能把“已提交”说成“已完成”。成片完成后核对实际输出、时长、分辨率和音轨；技术检查通过不代表叙事和视觉质量已经通过。原始素材不会被修改。`;
