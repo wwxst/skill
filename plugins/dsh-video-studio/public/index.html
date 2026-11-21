@@ -311,9 +311,10 @@ $('storyboard-save').addEventListener('click',async()=>{
 $('storyboard-apply').addEventListener('click',async()=>{
   try{
     const value=JSON.parse($('storyboard-json').value);
-    const assetIds=value.shots.map(shot=>shot.assetId).filter(Boolean);
+    const hasAllAssets=value.shots.every(shot=>Boolean(shot.assetId));
+    const assetIds=hasAllAssets?value.shots.map(shot=>shot.assetId):undefined;
     const payload={expectedRevision:projectRevision,fit:'crop'};
-    if(assetIds.length)payload.assetIds=assetIds;
+    if(assetIds)payload.assetIds=assetIds;
     const result=await api('/api/projects/'+currentProject.id+'/storyboard/apply',{method:'POST',body:JSON.stringify(payload)});
     await loadProject(currentProject.id);showMessage('镜头清单已生成时间线，共 '+result.clipCount+' 个片段。');
   }catch(error){showMessage(error.message,true);}

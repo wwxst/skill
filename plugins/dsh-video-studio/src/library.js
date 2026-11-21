@@ -129,7 +129,7 @@ export function createMediaLibrary({ dataDir, resolveAllowedFile, store, ffprobe
     });
   }
 
-  async function addFile({ filePath, role, name, tags = [] }) {
+  async function addFile({ filePath, role, name, tags = [], media = null }) {
     const resolved = await resolveAllowedFile(filePath);
     const ext = path.extname(resolved.path).toLowerCase();
     if (!['image', 'video', 'audio'].includes(role)) throw new VideoStudioError('素材类型无效。', 'INVALID_ARGUMENT');
@@ -147,7 +147,7 @@ export function createMediaLibrary({ dataDir, resolveAllowedFile, store, ffprobe
       });
     }
     const buffer = await readFile(resolved.path);
-    return addBuffer({ buffer, extension: ext, role, name: name || path.basename(resolved.path), tags, source: { provider: 'local' } });
+    return addBuffer({ buffer, extension: ext, role, name: name || path.basename(resolved.path), tags, source: { provider: 'local' }, media });
   }
 
   async function list({ query = '', tags = [], role, limit = 100, offset = 0 } = {}) {

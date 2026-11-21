@@ -479,6 +479,7 @@ export async function createEngine(config = {}) {
       const variant = variants[index] || {};
       const hasCustomSize = variant.width !== undefined || variant.height !== undefined;
       if (hasCustomSize && (!Number.isInteger(variant.width) || !Number.isInteger(variant.height))) throw new VideoStudioError('自定义分辨率必须同时提供 width 和 height。', 'INVALID_ARGUMENT');
+      if (variant.aspectRatio && hasCustomSize) throw new VideoStudioError('版本配置不能同时设置 aspectRatio 和自定义 width/height。', 'INVALID_ARGUMENT');
       const outputArgs = variant.aspectRatio
         ? { aspectRatio: variant.aspectRatio }
         : { width: variant.width ?? source.output.width, height: variant.height ?? source.output.height };
