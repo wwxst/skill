@@ -110,7 +110,7 @@ export function createStore(config = {}) {
       createdAt: now,
       updatedAt: now,
       revision: 1,
-      output: { aspectRatio, width: outputWidth, height: outputHeight, fps },
+      output: { aspectRatio: width !== undefined ? 'custom' : aspectRatio, width: outputWidth, height: outputHeight, fps },
       assets: [],
       timeline: { clips: [], transitions: [], overlays: [], musicAssetId: null, voiceoverAssetId: null, originalAudioVolume: 1, musicVolume: 0.18, voiceoverVolume: 1, subtitles: null },
       outputs: [],

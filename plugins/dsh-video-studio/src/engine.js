@@ -504,6 +504,11 @@ export async function createEngine(config = {}) {
         clone.assets = assets;
         clone.timeline = structuredClone(source.timeline);
         clone.timeline.clips = (clone.timeline.clips || []).map((clip) => ({ ...clip, assetId: mapping.get(clip.assetId) || clip.assetId }));
+        const fontScale = clone.output.height / Math.max(source.output.height, 1);
+        clone.timeline.overlays = (clone.timeline.overlays || []).map((overlay) => ({
+          ...overlay,
+          fontSize: Math.max(20, Math.min(120, Math.round(Number(overlay.fontSize ?? 56) * fontScale))),
+        }));
         clone.timeline.musicAssetId = mapping.get(clone.timeline.musicAssetId) || null;
         clone.timeline.voiceoverAssetId = mapping.get(clone.timeline.voiceoverAssetId) || null;
         if (clone.timeline.subtitles?.path) {
@@ -513,7 +518,11 @@ export async function createEngine(config = {}) {
         }
         clone.outputs = [];
         clone.storyboard = source.storyboard ? structuredClone(source.storyboard) : null;
-        if (clone.storyboard?.shots) clone.storyboard.shots = clone.storyboard.shots.map((shot) => ({ ...shot, assetId: mapping.get(shot.assetId) || shot.assetId }));
+        if (clone.storyboard?.shots) clone.storyboard.shots = clone.storyboard.shots.map((shot) => ({
+          ...shot,
+          assetId: mapping.get(shot.assetId) || shot.assetId,
+          fontSize: Math.max(20, Math.min(120, Math.round(Number(shot.fontSize ?? 56) * fontScale))),
+        }));
         if (variant.overlayText) {
           const overlays = clone.timeline.overlays || [];
           const totalDuration = timelineDuration(clone.timeline.clips || [], clone.timeline.transitions || []);

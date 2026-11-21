@@ -24,6 +24,6 @@ test('parses SRT cues for subtitle readability analysis', () => {
   const cues = parseSubtitleCues('1\\n00:00:00,000 --> 00:00:02,000\\nA short subtitle\\n\\n2\\n00:00:02,000 --> 00:00:04,000\\nSecond line\\n');
   assert.equal(cues.length, 2);
   assert.equal(cues[0].duration, 2);
-  assert.equal(cues[0].charCount, 15);
+  assert.equal(cues[0].charCount, 16);
   assert.equal(cues[1].start, 2);
 });
