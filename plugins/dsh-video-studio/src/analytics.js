@@ -97,19 +97,35 @@ export function createPerformanceStore(dataDir) {
     const groups = new Map();
     for (const item of records) {
       const key = String(item[groupBy] ?? '(未填写)');
-      if (!groups.has(key)) groups.set(key, { key, sampleCount: 0, metrics: Object.fromEntries(METRICS.map((name) => [name, 0])) });
+      if (!groups.has(key)) groups.set(key, {
+        key,
+        sampleCount: 0,
+        metrics: Object.fromEntries(METRICS.map((name) => [name, 0])),
+        metricSampleCounts: Object.fromEntries(METRICS.map((name) => [name, 0])),
+      });
       const group = groups.get(key);
       group.sampleCount += 1;
-      for (const name of METRICS) group.metrics[name] += item.metrics[name] || 0;
+      const available = Array.isArray(item.availableMetrics) ? item.availableMetrics : METRICS;
+      for (const name of METRICS) {
+        if (available.includes(name)) {
+          group.metrics[name] += item.metrics[name] || 0;
+          group.metricSampleCounts[name] += 1;
+        }
+      }
     }
     const result = [...groups.values()].map((group) => {
       const views = group.metrics.views;
-      const engagement = group.metrics.likes + group.metrics.comments + group.metrics.shares + group.metrics.saves;
+      const hasViews = group.metricSampleCounts.views > 0 && views > 0;
+      const engagementMetrics = ['likes', 'comments', 'shares', 'saves'].filter((name) => group.metricSampleCounts[name] > 0);
+      const engagement = engagementMetrics.reduce((sum, name) => sum + group.metrics[name], 0);
+      const hasFollows = group.metricSampleCounts.follows > 0;
+      const hasConversions = group.metricSampleCounts.conversions > 0;
       return {
         ...group,
-        engagementRate: views ? Number((engagement / views).toFixed(4)) : null,
-        followRate: views ? Number((group.metrics.follows / views).toFixed(4)) : null,
-        conversionRate: views ? Number((group.metrics.conversions / views).toFixed(4)) : null,
+        availableMetrics: METRICS.filter((name) => group.metricSampleCounts[name] > 0),
+        engagementRate: hasViews && engagementMetrics.length ? Number((engagement / views).toFixed(4)) : null,
+        followRate: hasViews && hasFollows ? Number((group.metrics.follows / views).toFixed(4)) : null,
+        conversionRate: hasViews && hasConversions ? Number((group.metrics.conversions / views).toFixed(4)) : null,
       };
     }).sort((a, b) => b.metrics.views - a.metrics.views).slice(0, limit);
     return {

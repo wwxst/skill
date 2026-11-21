@@ -33,4 +33,9 @@ test('stores TikTok source and metric availability metadata', async (t) => {
   assert.equal(record.source, 'tiktok-display-api');
   assert.equal(record.platformVideoId, '1234567890123456789');
   assert.deepEqual(record.availableMetrics, ['views', 'likes', 'comments', 'shares']);
+  const summary = await store.summary({ groupBy: 'accountType' });
+  assert.deepEqual(summary.groups[0].availableMetrics, ['views', 'likes', 'comments', 'shares']);
+  assert.equal(summary.groups[0].followRate, null);
+  assert.equal(summary.groups[0].conversionRate, null);
+  assert.equal(summary.groups[0].metricSampleCounts.follows, 0);
 });
