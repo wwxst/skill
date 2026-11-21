@@ -607,30 +607,40 @@ export async function createEngine(config = {}) {
   async function tiktokSync({ mappings, limit = 100 } = {}) {
     if (!Array.isArray(mappings) || mappings.length < 1 || mappings.length > 200) throw new VideoStudioError('TikTok 同步必须提供 1–200 条作品与项目的对应关系。', 'INVALID_ARGUMENT');
     const seen = new Set();
+    const accountIds = new Set();
     for (const mapping of mappings) {
       if (!mapping || !/^\d{8,30}$/.test(String(mapping.videoId || ''))) throw new VideoStudioError('每条映射都必须提供有效的 TikTok videoId。', 'INVALID_ARGUMENT');
-      if (seen.has(String(mapping.videoId))) throw new VideoStudioError('同一批次不能重复映射同一个 TikTok videoId。', 'INVALID_ARGUMENT');
-      seen.add(String(mapping.videoId));
+      const accountId = String(mapping.accountId || 'default');
+      const mappingKey = accountId + ':' + String(mapping.videoId);
+      if (seen.has(mappingKey)) throw new VideoStudioError('同一账号同一批次不能重复映射同一个 TikTok videoId。', 'INVALID_ARGUMENT');
+      seen.add(mappingKey);
+      accountIds.add(accountId);
       if (!['acquisition', 'mid-video', 'other'].includes(mapping.accountType || 'acquisition')) throw new VideoStudioError('账号类型无效。', 'INVALID_ARGUMENT');
       await store.getRawProject(mapping.projectId);
     }
-    const result = await tiktok.listVideos({ limit });
-    const byId = new Map(result.videos.map((video) => [video.id, video]));
+    const videosByAccount = new Map();
+    const unavailableMetricsByAccount = {};
+    for (const accountId of accountIds) {
+      const result = await tiktok.listVideos({ limit, accountId });
+      videosByAccount.set(accountId, new Map(result.videos.map((video) => [video.id, video])));
+      unavailableMetricsByAccount[accountId] = result.metricsUnavailable;
+    }
     const synced = [], missing = [];
     for (const mapping of mappings) {
-      const video = byId.get(String(mapping.videoId));
-      if (!video) { missing.push({ videoId: String(mapping.videoId), reason: '最近作品列表中没有该 ID；可能超出同步范围或不属于当前授权账号。' }); continue; }
+      const accountId = String(mapping.accountId || 'default');
+      const video = videosByAccount.get(accountId)?.get(String(mapping.videoId));
+      if (!video) { missing.push({ accountId, videoId: String(mapping.videoId), reason: '该账号最近作品列表中没有该 ID；可能超出同步范围或不属于当前授权账号。' }); continue; }
       const record = await performanceStore.record({
-        projectId: mapping.projectId, accountType: mapping.accountType || 'acquisition',
+        projectId: mapping.projectId, accountId, accountType: mapping.accountType || 'acquisition',
         objective: mapping.objective, topic: mapping.topic || video.title, hookType: mapping.hookType,
         cta: mapping.cta, templateId: mapping.templateId, postUrl: video.shareUrl,
         platformVideoId: video.id, source: 'tiktok-display-api', availableMetrics: video.availableMetrics,
         postedAt: video.createTime || undefined, views: video.metrics.views ?? 0,
         likes: video.metrics.likes ?? 0, comments: video.metrics.comments ?? 0, shares: video.metrics.shares ?? 0,
       });
-      synced.push({ videoId: video.id, projectId: mapping.projectId, recordId: record.id, metrics: video.metrics, availableMetrics: video.availableMetrics });
+      synced.push({ accountId, videoId: video.id, projectId: mapping.projectId, recordId: record.id, metrics: video.metrics, availableMetrics: video.availableMetrics });
     }
-    return { provider: 'tiktok-display-api', syncedCount: synced.length, missingCount: missing.length, synced, missing, unavailableMetrics: result.metricsUnavailable, note: '仅同步 API 实际返回的播放、点赞、评论、分享；主页访问、关注和转化需要另行补录。' };
+    return { provider: 'tiktok-display-api', syncedCount: synced.length, missingCount: missing.length, synced, missing, unavailableMetricsByAccount, note: '仅同步 API 实际返回的播放、点赞、评论、分享；主页访问、关注和转化需要另行补录。' };
   }
 
   async function status() {
@@ -695,6 +705,7 @@ export async function createEngine(config = {}) {
         imageGeneration: { configured: library.imageGenerationConfigured, model: library.imageModel },
         tiktok: {
           configured: tiktok.configured,
+          accounts: tiktok.listAccounts(),
           authorizationReady: Boolean(config.tiktokClientKey || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY) && Boolean(config.tiktokClientSecret || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET),
           automaticRefresh: Boolean(config.tiktokClientKey || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY) && Boolean(config.tiktokClientSecret || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET),
         },

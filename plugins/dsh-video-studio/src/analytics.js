@@ -54,6 +54,8 @@ export function createPerformanceStore(dataDir) {
     }
     const accountType = input.accountType ?? 'acquisition';
     if (!['acquisition', 'mid-video', 'other'].includes(accountType)) throw new VideoStudioError('accountType 只能是 acquisition、mid-video 或 other。', 'INVALID_ARGUMENT');
+    const accountId = String(input.accountId || 'default').trim();
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,39}$/.test(accountId)) throw new VideoStudioError('accountId 格式无效。', 'INVALID_ARGUMENT');
     const objective = String(input.objective || (accountType === 'mid-video' ? 'traffic' : 'acquisition')).slice(0, 80);
     const postedAt = input.postedAt ? new Date(input.postedAt) : new Date();
     if (Number.isNaN(postedAt.getTime())) throw new VideoStudioError('postedAt 日期格式无效。', 'INVALID_ARGUMENT');
@@ -65,6 +67,7 @@ export function createPerformanceStore(dataDir) {
     const record = {
       id: id('perf'),
       projectId: input.projectId,
+      accountId,
       accountType,
       objective,
       topic: String(input.topic || '').slice(0, 300),
@@ -85,8 +88,8 @@ export function createPerformanceStore(dataDir) {
     });
   }
 
-  async function summary({ groupBy = 'objective', accountType, from, to, limit = 50 } = {}) {
-    const allowedGroups = ['objective', 'accountType', 'topic', 'hookType', 'templateId'];
+  async function summary({ groupBy = 'objective', accountId, accountType, from, to, limit = 50 } = {}) {
+    const allowedGroups = ['objective', 'accountId', 'accountType', 'topic', 'hookType', 'templateId'];
     if (!allowedGroups.includes(groupBy)) throw new VideoStudioError('groupBy 参数无效。', 'INVALID_ARGUMENT');
     if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new VideoStudioError('limit 必须是 1–200。', 'INVALID_ARGUMENT');
     const fromTime = from ? new Date(from).getTime() : -Infinity;
@@ -94,7 +97,8 @@ export function createPerformanceStore(dataDir) {
     if (Number.isNaN(fromTime) || Number.isNaN(toTime) || fromTime > toTime) throw new VideoStudioError('数据统计时间范围无效。', 'INVALID_ARGUMENT');
     const data = await read();
     const records = data.records.filter((item) =>
-      (!accountType || item.accountType === accountType)
+      (!accountId || item.accountId === accountId)
+      && (!accountType || item.accountType === accountType)
       && new Date(item.postedAt).getTime() >= fromTime
       && new Date(item.postedAt).getTime() <= toTime,
     );
@@ -134,6 +138,7 @@ export function createPerformanceStore(dataDir) {
     }).sort((a, b) => b.metrics.views - a.metrics.views).slice(0, limit);
     return {
       groupBy,
+      accountId: accountId || null,
       accountType: accountType || null,
       sampleCount: records.length,
       groups: result,

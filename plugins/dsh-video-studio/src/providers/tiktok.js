@@ -31,7 +31,7 @@ function emptyAccount() {
 
 function normalizeVideo(video) {
   const id = String(video.id || '');
-  if (!/^\\d{8,30}$/.test(id)) return null;
+  if (!/^\d{8,30}$/.test(id)) return null;
   const count = (value) => Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : null;
   const fields = { views: 'view_count', likes: 'like_count', comments: 'comment_count', shares: 'share_count' };
   return {
@@ -99,6 +99,7 @@ export class TikTokProvider {
     if (!this.tokenPath) return;
     try {
       const saved = await readJson(this.tokenPath);
+      const environmentDefault = this.accounts.get('default') || emptyAccount();
       if (saved.accounts && typeof saved.accounts === 'object' && !Array.isArray(saved.accounts)) {
         for (const [accountId, value] of Object.entries(saved.accounts)) {
           const key = normalizeAccountId(accountId);
@@ -110,8 +111,10 @@ export class TikTokProvider {
       }
       const defaultAccount = this.accounts.get('default');
       if (defaultAccount) {
-        if (!defaultAccount.accessToken) defaultAccount.accessToken = this.accessToken;
-        if (!defaultAccount.refreshToken) defaultAccount.refreshToken = this.refreshToken;
+        defaultAccount.accessToken ||= environmentDefault.accessToken;
+        defaultAccount.refreshToken ||= environmentDefault.refreshToken;
+      } else if (environmentDefault.accessToken || environmentDefault.refreshToken) {
+        this.accounts.set('default', environmentDefault);
       }
     } catch (error) {
       if (error.code !== 'ENOENT') throw new VideoStudioError('TikTok 本地令牌文件无法读取：' + error.message, 'TIKTOK_TOKEN_STORE_INVALID');

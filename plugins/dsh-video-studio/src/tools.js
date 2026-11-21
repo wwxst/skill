@@ -427,6 +427,7 @@ export function createToolDefinitions(engine) {
       '录入 TikTok 已发布作品的真实数据，沉淀账号类型、选题、开头类型、CTA、模板和播放互动转化指标。只能录入实际数据，不要用估算值冒充真实成绩。',
       {
         projectId: string('对应的视频项目 ID'),
+        accountId: string('具体账号标识，例如 capcut-project-01，可选，默认 default'),
         accountType: enumString('账号类型', ['acquisition', 'mid-video', 'other']),
         objective: string('运营目标，例如 acquisition、traffic、conversion'),
         topic: string('选题方向，可选'),
@@ -450,7 +451,8 @@ export function createToolDefinitions(engine) {
       'video_performance_summary',
       '根据已录入的真实发布数据，按账号目标、选题、开头类型、模板或账号类型汇总播放、互动、关注和转化率。返回样本量，不能把小样本比例当成稳定规律。',
       {
-        groupBy: enumString('分组维度', ['objective', 'accountType', 'topic', 'hookType', 'templateId']),
+        groupBy: enumString('分组维度', ['objective', 'accountId', 'accountType', 'topic', 'hookType', 'templateId']),
+        accountId: string('具体账号标识筛选，可选'),
         accountType: enumString('账号类型筛选', ['acquisition', 'mid-video', 'other']),
         from: string('统计开始日期 ISO，可选'),
         to: string('统计结束日期 ISO，可选'),
@@ -461,19 +463,19 @@ export function createToolDefinitions(engine) {
     definition(
       'video_tiktok_authorize',
       '生成 TikTok 官方 OAuth 授权链接。先在 TikTok 开发者后台登记 redirectUri 并配置 Client Key/Secret，再让用户打开链接授权。工具会保存一次性 state 防止回调伪造。',
-      { redirectUri: string('TikTok 开发者后台已登记的 HTTPS 或 localhost 回调地址') }, ['redirectUri'],
+      { redirectUri: string('TikTok 开发者后台已登记的 HTTPS 或 localhost 回调地址'), accountId: string('账号标识，例如 capcut-project-01；不同 TikTok 账号使用不同标识') }, ['redirectUri'],
       (args) => engine.tiktokAuthorize(args),
     ),
     definition(
       'video_tiktok_connect',
       '使用用户授权回调 URL 中的 code 和 state 兑换 TikTok access/refresh token。redirectUri 必须与授权时完全一致。令牌会安全保存在本机数据目录。',
-      { code: string('TikTok OAuth 回调 code'), state: string('授权链接返回的 state'), redirectUri: string('与授权时完全一致的回调地址') }, ['code', 'state', 'redirectUri'],
+      { code: string('TikTok OAuth 回调 code'), state: string('授权链接返回的 state'), redirectUri: string('与授权时完全一致的回调地址'), accountId: string('授权时使用的同一个账号标识') }, ['code', 'state', 'redirectUri'],
       (args) => engine.tiktokConnect(args),
     ),
     definition(
       'video_tiktok_video_list',
       '通过 TikTok 官方 Display API 读取当前授权账号最近发布的公开作品及播放、点赞、评论、分享数据。需要 TikTok 开发者应用获批 video.list 权限并配置 OAuth 令牌。',
-      { limit: number('读取最近 1–200 条作品，默认 100') }, [],
+      { limit: number('读取最近 1–200 条作品，默认 100'), accountId: string('要读取的账号标识，默认 default') }, [],
       (args) => engine.tiktokVideoList(args), true,
     ),
     definition(
@@ -485,6 +487,7 @@ export function createToolDefinitions(engine) {
           type: 'object',
           properties: {
             videoId: string('TikTok videoId'), projectId: string('对应的 Video Studio 项目 ID'),
+            accountId: string('作品所属账号标识，默认 default'),
             accountType: enumString('账号类型', ['acquisition', 'mid-video', 'other']),
             objective: string('运营目标，可选'), topic: string('选题，可选；默认使用作品标题'),
             hookType: string('开头类型，可选'), cta: string('行动引导，可选'), templateId: string('模板 ID，可选'),
@@ -506,7 +509,7 @@ CapCut 拉新项目必须优先使用仓库 Skill capcut-launch-tiktok 的文案
 项目素材只能从允许目录导入。默认允许当前工作目录、用户主目录和 Video Studio 数据目录；遇到 ASSET_PATH_NOT_ALLOWED 时提示用户配置 allowedRoots，不要绕过安全限制。
 video_project_duplicate 可从同一源项目复制不同画幅、分辨率、帧率和标题版本；之后用 video_batch_render 顺序批量渲染。批量任务单项失败不会阻止其他项目，进程中断后可用 video_job_retry 只重试未完成项。
 每次渲染后会自动执行一次基础质量检查，另可用 video_quality_check 检查黑场、静帧、音频响度、静音区间、字幕阅读速度和文字可读性。自动检测是辅助提示，不代替人工审片。
-先调用 video_tiktok_authorize 和 video_tiktok_connect 完成 TikTok OAuth 授权；再通过 video_tiktok_video_list 读取授权账号作品，再用 video_tiktok_sync 将真实播放、点赞、评论、分享快照映射到项目；主页访问、关注和 CPS 转化通过 video_performance_record 补录。再用 video_performance_summary 比较项目号（acquisition）和中视频号（mid-video）的表现。只能录入真实数据；样本量不足时不能把比例推断为确定规律。
+每个 TikTok 账号使用独立 accountId（例如 capcut-project-01、mid-video-01）。分别调用 video_tiktok_authorize 和 video_tiktok_connect 完成授权；账号令牌按 accountId 隔离并保存在本机。通过 video_tiktok_video_list 指定 accountId 读取对应作品，再在 video_tiktok_sync 的每条 mapping 中指定 accountId，将真实播放、点赞、评论、分享快照映射到项目；主页访问、关注和 CPS 转化通过 video_performance_record 补录。用 video_performance_summary 按 accountId 或 accountType 分别比较账号和账号类型的表现。只能录入真实数据；样本量不足时不能把比例推断为确定规律。
 修改时间线、字幕、镜头清单或复制项目前，必须先 video_project_get 获取最新 revision；遇到 REVISION_CONFLICT 重新读取后再修改。模板目前只保存图片时间线、镜头运动、转场和文字样式，不覆盖目标项目的画幅、分辨率和 FPS。
 当前仍不支持自动语音识别（ASR）、AI 语音合成（TTS）、CapCut 原生草稿导出、专业节点调色和专业级多轨合成。不要声称这些能力已实现。用户提供的音乐、旁白和 SRT 可以导入并参与渲染。
 渲染任务返回 jobId 后必须轮询到终态；提交不等于完成。成片完成后核对时长、分辨率、音轨和质量检查结果。`;

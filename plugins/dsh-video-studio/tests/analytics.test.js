@@ -39,3 +39,20 @@ test('stores TikTok source and metric availability metadata', async (t) => {
   assert.equal(summary.groups[0].conversionRate, null);
   assert.equal(summary.groups[0].metricSampleCounts.follows, 0);
 });
+
+
+test('separates performance records by concrete account as well as account type', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-analytics-accounts-test-'));
+  const store = createPerformanceStore(root);
+  await store.initialize();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await store.record({ projectId: 'vs_123456789abc', accountId: 'capcut-project-01', accountType: 'acquisition', views: 1000, likes: 100 });
+  await store.record({ projectId: 'vs_123456789abc', accountId: 'mid-video-01', accountType: 'mid-video', views: 5000, likes: 300 });
+  const summary = await store.summary({ groupBy: 'accountId' });
+  assert.equal(summary.groups.length, 2);
+  assert.equal(summary.groups.find((item) => item.key === 'capcut-project-01').metrics.views, 1000);
+  assert.equal(summary.groups.find((item) => item.key === 'mid-video-01').metrics.views, 5000);
+  const filtered = await store.summary({ groupBy: 'accountType', accountId: 'mid-video-01' });
+  assert.equal(filtered.sampleCount, 1);
+  assert.equal(filtered.groups[0].key, 'mid-video');
+});

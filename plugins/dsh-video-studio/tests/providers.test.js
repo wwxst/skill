@@ -231,3 +231,78 @@ test('Pixabay download rejects payloads whose bytes do not match the declared im
   });
   await assert.rejects(provider.download({ mediaId: '123', mediaType: 'image' }), (error) => error.code === 'UNSUPPORTED_REMOTE_MEDIA');
 });
+
+
+test('keeps multiple named TikTok accounts and OAuth states isolated', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-tiktok-multi-account-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const tokenRequests = [];
+  const videoRequests = [];
+  const provider = new TikTokProvider({
+    dataDir: root, clientKey: 'client-key', clientSecret: 'client-secret',
+    fetchImpl: async (url, options) => {
+      if (String(url) === 'https://open.tiktokapis.com/v2/oauth/token/') {
+        const code = options.body.get('code');
+        tokenRequests.push(code);
+        const suffix = code === 'project-code' ? 'project' : 'midvideo';
+        return new Response(JSON.stringify({
+          access_token: 'access-' + suffix,
+          refresh_token: 'refresh-' + suffix,
+          expires_in: 7200,
+          refresh_expires_in: 15552000,
+          open_id: 'open-' + suffix,
+          scope: 'user.info.basic,video.list',
+        }), { status: 200 });
+      }
+      const request = new URL(String(url));
+      assert.equal(request.pathname, '/v2/video/list/');
+      videoRequests.push(options.headers.authorization);
+      return new Response(JSON.stringify({ data: { videos: [], cursor: 0, has_more: false }, error: { code: 'ok' } }), { status: 200 });
+    },
+  });
+  await provider.initialize();
+  const projectAuth = await provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback', accountId: 'capcut-project-01' });
+  const midVideoAuth = await provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback', accountId: 'mid-video-01' });
+  assert.notEqual(projectAuth.state, midVideoAuth.state);
+
+  await assert.rejects(
+    provider.exchangeAuthorizationCode({ code: 'project-code', state: projectAuth.state, redirectUri: projectAuth.redirectUri, accountId: 'mid-video-01' }),
+    (error) => error.code === 'TIKTOK_OAUTH_STATE_MISMATCH',
+  );
+  await provider.exchangeAuthorizationCode({ code: 'project-code', state: projectAuth.state, redirectUri: projectAuth.redirectUri, accountId: 'capcut-project-01' });
+  await provider.exchangeAuthorizationCode({ code: 'mid-video-code', state: midVideoAuth.state, redirectUri: midVideoAuth.redirectUri, accountId: 'mid-video-01' });
+
+  const projectState = provider.getAccount('capcut-project-01');
+  const midVideoState = provider.getAccount('mid-video-01');
+  assert.equal(projectState.openId, 'open-project');
+  assert.equal(midVideoState.openId, 'open-midvideo');
+  assert.equal(await provider.getAccessToken('capcut-project-01'), 'access-project');
+  assert.equal(await provider.getAccessToken('mid-video-01'), 'access-midvideo');
+
+  await provider.listVideos({ accountId: 'capcut-project-01', limit: 1 });
+  await provider.listVideos({ accountId: 'mid-video-01', limit: 1 });
+  assert.deepEqual(videoRequests, ['Bearer access-project', 'Bearer access-midvideo']);
+
+  const saved = JSON.parse(await (await import('node:fs/promises')).readFile(path.join(root, 'integrations', 'tiktok-token.json'), 'utf8'));
+  assert.deepEqual(Object.keys(saved.accounts).sort(), ['capcut-project-01', 'mid-video-01']);
+  const restored = new TikTokProvider({ dataDir: root, clientKey: 'client-key', clientSecret: 'client-secret' });
+  await restored.initialize();
+  assert.deepEqual(restored.listAccounts().map((account) => account.accountId).sort(), ['capcut-project-01', 'mid-video-01']);
+  assert.deepEqual(tokenRequests, ['project-code', 'mid-video-code']);
+});
+
+test('rejects an expired TikTok OAuth state', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-tiktok-state-expiry-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const provider = new TikTokProvider({
+    dataDir: root, clientKey: 'client-key', clientSecret: 'client-secret',
+    fetchImpl: async () => { throw new Error('Expired state must be rejected before network request'); },
+  });
+  await provider.initialize();
+  const auth = await provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback', accountId: 'account-01' });
+  provider.getAccount('account-01').pendingStateExpiresAt = Date.now() - 1;
+  await assert.rejects(
+    provider.exchangeAuthorizationCode({ code: 'expired-code', state: auth.state, redirectUri: auth.redirectUri, accountId: 'account-01' }),
+    (error) => error.code === 'TIKTOK_OAUTH_STATE_MISMATCH',
+  );
+});
