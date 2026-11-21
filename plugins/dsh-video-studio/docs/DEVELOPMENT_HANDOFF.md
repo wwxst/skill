@@ -5,7 +5,10 @@
 > 最近更新：2026-11-21
 > 仓库：`wwxst/skill`
 > 当前开发分支：`feat/auto-video-production`
-> 当前分支 HEAD：`a1f17df05316f5d832767866e3811078a6d95214`
+> 最近一次代码与 CI 验证提交：`a1f17df05316f5d832767866e3811078a6d95214`
+> 交接文档提交：`91bb4d4b3631d1a7264a2b56e099b19fa5140f91`
+> README 交接入口提交：`8fb80c2fe39f97ba13defda8e4b09369d08620a2`
+> 续作时必须重新查询远程分支 HEAD；本文不把历史 SHA 当作永远最新的 HEAD。
 
 ## 1. 项目目标
 
@@ -28,9 +31,9 @@
 - 仓库： https://github.com/wwxst/skill
 - 当前分支：`feat/auto-video-production`
 - 基准：从 `main` 分支创建；当前与 `main` 的共同基准提交为 `1bf6014fc218de6f7a5d1fbdd6781dbda3b69dcb`。
-- 截至本文更新时，GitHub 比较结果显示当前分支领先 `main` **18 个提交**，落后 0 个提交。
-- 当前 HEAD：`a1f17df05316f5d832767866e3811078a6d95214`。
-- 本轮代码和文档已提交并推送到远程开发分支。
+- 最近一次代码与自动化测试验证点为 `a1f17df05316f5d832767866e3811078a6d95214`。
+- 随后又新增两个文档提交：`91bb4d4b3631d1a7264a2b56e099b19fa5140f91`（本交接文档）和 `8fb80c2fe39f97ba13defda8e4b09369d08620a2`（README 增加交接文档入口）。
+- 这三个提交及此前代码提交均已推送到远程开发分支。最新 HEAD、ahead/behind 数量以续作时重新查询 GitHub 的结果为准。
 - `main` 未被本轮修改；尚未创建 PR，尚未合并。
 
 不要把当前开发分支误认为已经进入 `main`。
@@ -84,10 +87,11 @@ GitHub Actions 已配置工作流：
 
 - 文件：`.github/workflows/video-studio.yml`
 - Workflow：Video Studio tests
-- 最近一次已完成运行：[#44853366170](https://github.com/wwxst/skill/actions/runs/44853366170)
+- 最近一次代码与测试提交的已完成运行：[#44853366170](https://github.com/wwxst/skill/actions/runs/44853366170)
 - 触发提交：`a1f17df05316f5d832767866e3811078a6d95214`
 - 结果：**success**
 - 实际完成步骤包括安装 Node.js、安装 FFmpeg、运行插件测试。
+- 后续交接文档和 README 文档提交也会触发 CI；新对话必须检查最新一次运行，不能把旧的成功结果当成最新提交的验证结果。
 
 新增的生产集成测试会生成两张测试图片，应用内置模板，执行真实 MP4 渲染，检查画面尺寸、时长和音轨，然后保存模板并在另一个项目中再次应用。
 
