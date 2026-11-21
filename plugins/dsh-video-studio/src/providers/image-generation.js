@@ -1,4 +1,5 @@
 import { VideoStudioError } from '../errors.js';
+import { liveValue } from '../util.js';
 
 function validBaseUrl(value) {
   let url;
@@ -24,14 +25,32 @@ function assertImageBytes(buffer, format) {
   if (!valid) throw new VideoStudioError('图片生成服务返回的数据不是预期的 ' + format + ' 图片。', 'IMAGE_PROVIDER_INVALID_IMAGE');
 }
 
+const DEFAULT_TIMEOUT_MS = 600000;
+const MIN_TIMEOUT_MS = 5000;
+const MAX_TIMEOUT_MS = 900000;
+
+/** Image generation regularly runs for minutes; keep the wait bounded but configurable. */
+export function resolveImageTimeoutMs(config = {}) {
+  const raw = Number(liveValue(config.imageTimeoutMs) ?? process.env.DSH_VIDEO_STUDIO_IMAGE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  if (!Number.isFinite(raw) || raw < MIN_TIMEOUT_MS || raw > MAX_TIMEOUT_MS) return DEFAULT_TIMEOUT_MS;
+  return Math.round(raw);
+}
+
 export function createImageGenerationProvider(config = {}) {
-  const apiKey = String(config.imageApiKey ?? process.env.DSH_VIDEO_STUDIO_IMAGE_API_KEY ?? '').trim();
-  const rawBaseUrl = config.imageApiBaseUrl ?? process.env.DSH_VIDEO_STUDIO_IMAGE_BASE_URL ?? 'https://api.openai.com/v1';
-  const baseUrl = validBaseUrl(rawBaseUrl);
-  const model = String(config.imageModel ?? process.env.DSH_VIDEO_STUDIO_IMAGE_MODEL ?? 'gpt-image-2.6-flare').trim();
   const fetchImpl = config.fetchImpl ?? globalThis.fetch;
 
+  // These values may be live volatile fields, so resolve them per operation: the
+  // Harness settings page edits the key, base URL, and model while the plugin runs.
+  function resolve() {
+    const apiKey = String(liveValue(config.imageApiKey) ?? process.env.DSH_VIDEO_STUDIO_IMAGE_API_KEY ?? '').trim();
+    const rawBaseUrl = liveValue(config.imageApiBaseUrl) ?? process.env.DSH_VIDEO_STUDIO_IMAGE_BASE_URL ?? 'https://api.openai.com/v1';
+    const baseUrl = validBaseUrl(rawBaseUrl);
+    const model = String(liveValue(config.imageModel) ?? process.env.DSH_VIDEO_STUDIO_IMAGE_MODEL ?? 'gpt-image-2.6-flare').trim();
+    return { apiKey, baseUrl, model };
+  }
+
   async function generate({ prompt, size = '1024x1536', quality = 'medium', outputFormat = 'png', signal } = {}) {
+    const { apiKey, baseUrl, model } = resolve();
     if (!apiKey) throw new VideoStudioError('尚未配置图片生成 API Key。请设置 DSH_VIDEO_STUDIO_IMAGE_API_KEY。', 'IMAGE_PROVIDER_NOT_CONFIGURED');
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.trim().length > 4000) throw new VideoStudioError('图片生成提示词不能为空，且不能超过 4000 个字符。', 'INVALID_ARGUMENT');
     const dimensions = String(size);
@@ -46,9 +65,10 @@ export function createImageGenerationProvider(config = {}) {
     if (!['low', 'medium', 'high', 'xhigh', 'max', 'auto'].includes(quality)) throw new VideoStudioError('图片质量只支持 low、medium、high、xhigh、max、auto。', 'INVALID_ARGUMENT');
     if (!['png', 'jpeg', 'webp'].includes(outputFormat)) throw new VideoStudioError('图片格式只支持 png、jpeg、webp。', 'INVALID_ARGUMENT');
 
-    const timeout = AbortSignal.timeout(180000);
+    const timeout = AbortSignal.timeout(resolveImageTimeoutMs(config));
     const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     let response;
+    let raw;
     try {
       response = await fetchImpl(baseUrl + '/images/generations', {
         method: 'POST',
@@ -56,16 +76,32 @@ export function createImageGenerationProvider(config = {}) {
         body: JSON.stringify({ model, prompt: prompt.trim(), n: 1, size, quality, output_format: outputFormat }),
         signal: requestSignal,
       });
+      // Read the body inside the same guard: a provider that sends headers and then
+      // stalls the body would otherwise surface the bare AbortSignal message.
+      raw = await response.text();
     } catch (error) {
+      if (error?.name === 'TimeoutError' || error?.name === 'AbortError') {
+        throw new VideoStudioError(
+          '图片生成请求超时（等待 ' + Math.round(resolveImageTimeoutMs(config) / 1000) + ' 秒）。'
+            + '可以调高 imageTimeoutMs，或用更小的尺寸/更低的 quality 重试。',
+          'IMAGE_PROVIDER_TIMEOUT',
+          { cause: error },
+        );
+      }
       throw new VideoStudioError('图片生成请求失败：' + error.message, 'IMAGE_PROVIDER_NETWORK_ERROR', { cause: error });
     }
-    const raw = await response.text();
     if (!response.ok) {
       let message = raw.slice(0, 1000);
       try { message = JSON.parse(raw).error?.message || message; } catch { /* Keep response text. */ }
-      message = message.replaceAll(apiKey, '[redacted]');
+      if (/^\s*</.test(message)) message = '服务返回了 HTML 错误页';
+      message = message.replaceAll(apiKey, '[redacted]').replace(/\s+/g, ' ').trim().slice(0, 300);
+      // A bare host usually means the API prefix is missing: /images/generations
+      // then hits the web server instead of the API and comes back 404 or 405.
+      const hint = response.status === 404 || response.status === 405
+        ? ' Base URL 可能缺少 API 前缀，请填写形如 https://host/v1 的地址。'
+        : '';
       const code = response.status === 429 ? 'IMAGE_PROVIDER_RATE_LIMIT' : 'IMAGE_PROVIDER_REQUEST_FAILED';
-      throw new VideoStudioError('图片生成服务返回 HTTP ' + response.status + '：' + message, code);
+      throw new VideoStudioError('图片生成服务返回 HTTP ' + response.status + '：' + message + hint, code);
     }
     let payload;
     try { payload = JSON.parse(raw); }
@@ -88,10 +124,48 @@ export function createImageGenerationProvider(config = {}) {
     };
   }
 
+  async function listModels() {
+    const { apiKey, baseUrl } = resolve();
+    if (!apiKey) throw new VideoStudioError('尚未配置图片生成 API Key。请设置 DSH_VIDEO_STUDIO_IMAGE_API_KEY 或在设置页填写。', 'IMAGE_PROVIDER_NOT_CONFIGURED');
+    let response;
+    try {
+      response = await fetchImpl(baseUrl + '/models', {
+        headers: { authorization: 'Bearer ' + apiKey },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (error) {
+      const message = String(error?.message || error).replaceAll(apiKey, '[redacted]');
+      throw new VideoStudioError('读取图片模型列表失败：' + message, 'IMAGE_PROVIDER_NETWORK_ERROR', { cause: error });
+    }
+    const raw = await response.text();
+    if (!response.ok) {
+      const message = raw.slice(0, 500).replaceAll(apiKey, '[redacted]');
+      const code = response.status === 401 || response.status === 403 ? 'IMAGE_PROVIDER_UNAUTHORIZED' : 'IMAGE_PROVIDER_REQUEST_FAILED';
+      throw new VideoStudioError('图片生成服务返回 HTTP ' + response.status + '：' + message, code);
+    }
+    let payload;
+    try { payload = JSON.parse(raw); }
+    catch (error) { throw new VideoStudioError('模型列表不是有效的 JSON。', 'IMAGE_PROVIDER_INVALID_RESPONSE', { cause: error }); }
+    const entries = Array.isArray(payload) ? payload : Array.isArray(payload?.data) ? payload.data : Array.isArray(payload?.models) ? payload.models : [];
+    const models = [...new Set(entries
+      .map((entry) => (typeof entry === 'string' ? entry : entry?.id))
+      .filter((value) => typeof value === 'string' && value.trim())
+      .map((value) => value.trim()))].sort();
+    if (models.length === 0) throw new VideoStudioError('图片生成服务没有返回任何模型，请确认 Base URL 是否兼容 OpenAI /models 接口。', 'IMAGE_PROVIDER_NO_MODELS');
+    return { baseUrl, models, count: models.length };
+  }
+
   return {
-    configured: Boolean(apiKey),
-    model,
-    baseUrl,
+    get configured() {
+      try { return Boolean(resolve().apiKey); } catch { return false; }
+    },
+    get model() {
+      try { return resolve().model; } catch { return null; }
+    },
+    get baseUrl() {
+      try { return resolve().baseUrl; } catch { return null; }
+    },
     generate,
+    listModels,
   };
 }

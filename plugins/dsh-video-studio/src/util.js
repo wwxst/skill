@@ -39,6 +39,19 @@ export async function writeJsonAtomic(path, value) {
   await rename(temporary, path);
 }
 
+/**
+ * Read a configuration value that may be a schema `.volatile()` field.
+ * The Harness settings page only exposes volatile fields, and hands them to the
+ * plugin as live getters, so every read has to resolve the current value.
+ */
+export function liveValue(value) {
+  if (value === null || typeof value !== 'object') return value;
+  if (typeof value.get === 'function') {
+    try { return value.get(); } catch { return undefined; }
+  }
+  return value;
+}
+
 export function isInside(parent, child) {
   const rel = relative(resolve(parent), resolve(child));
   return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel));

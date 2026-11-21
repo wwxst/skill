@@ -7,15 +7,109 @@ import { VideoStudioError } from './errors.js';
 
 const PUBLIC_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
 
-function sendJson(response, status, value) {
+function sendJson(response, status, value, headers = {}) {
   const body = Buffer.from(JSON.stringify(value));
   response.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'content-length': body.length,
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+    ...headers,
   });
   response.end(body);
+}
+
+function isLoopbackOrigin(origin) {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(String(origin || ''));
+}
+
+const CALLBACK_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]{0,63}$/;
+
+function sendCallback(response, status, value, callback, headers = {}) {
+  if (!callback) {
+    sendJson(response, status, value, headers);
+    return;
+  }
+  // JSONP: a <script> load is exempt from CORS, preflight, and private-network
+  // checks, so the settings page can still read the model list on browsers or
+  // proxies that block the equivalent fetch().
+  const body = Buffer.from(`/**/${callback}(${JSON.stringify(value)});`);
+  response.writeHead(200, {
+    'content-type': 'application/javascript; charset=utf-8',
+    'content-length': body.length,
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    ...headers,
+  });
+  response.end(body);
+}
+
+async function logRejectedModelRequest(engine, line) {
+  try {
+    const dir = engine?.store?.dataDir;
+    if (!dir) return;
+    const { appendFile, mkdir } = await import('node:fs/promises');
+    await mkdir(dir, { recursive: true });
+    await appendFile(path.join(dir, 'image-models.log'), `${new Date().toISOString()} ${line}\n`, 'utf8');
+  } catch { /* Diagnostics must never break the response. */ }
+}
+
+/**
+ * Read-only model list for the Harness settings page, which runs on a different
+ * loopback origin than the workbench. It is answered before assertLocalRequest
+ * instead of relaxing that check for every other API.
+ */
+async function serveImageModels(request, response, engine, port, url, method) {
+  const host = String(request.headers.host || '').toLowerCase();
+  const origin = request.headers.origin;
+  // Echo whatever the browser sent so a CORS-capable client can read the body,
+  // including the rejection paths below; a rejection without the header would
+  // surface as an unreadable "Failed to fetch".
+  const cors = {
+    'access-control-allow-origin': origin || '*',
+    'access-control-allow-private-network': 'true',
+  };
+  const callback = CALLBACK_PATTERN.test(String(url.searchParams.get('callback') || ''))
+    ? url.searchParams.get('callback')
+    : undefined;
+
+  if (method === 'OPTIONS') {
+    response.writeHead(204, {
+      ...cors,
+      'access-control-allow-methods': 'GET, OPTIONS',
+      'access-control-allow-headers': 'accept, content-type, accept-language',
+      'access-control-max-age': '600',
+    });
+    response.end();
+    return;
+  }
+
+  const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, '127.0.0.1', 'localhost']);
+  if (!allowedHosts.has(host)) {
+    await logRejectedModelRequest(engine, `host=${host} origin=${origin ?? '-'} reason=host`);
+    sendCallback(response, 403, { error: '只允许通过本机地址访问 Video Studio。', code: 'HOST_NOT_ALLOWED' }, callback, cors);
+    return;
+  }
+  // `null` is what an Electron renderer or a sandboxed frame sends; `dsh-app://` is
+  // the Harness desktop shell's own custom protocol. Both still only reach a
+  // loopback-bound endpoint, and the payload is a model-name list.
+  const appOrigin = typeof origin === 'string' && /^(dsh-app|file):/i.test(origin);
+  if (origin !== undefined && origin !== 'null' && !appOrigin && !isLoopbackOrigin(origin)) {
+    await logRejectedModelRequest(engine, `host=${host} origin=${origin} reason=origin`);
+    sendCallback(response, 403, { error: '跨站请求已被拒绝。', code: 'ORIGIN_NOT_ALLOWED' }, callback, cors);
+    return;
+  }
+
+  try {
+    sendCallback(response, 200, await engine.imageModels(), callback, cors);
+  } catch (error) {
+    const code = error?.code || 'IMAGE_MODELS_FAILED';
+    const status = code === 'IMAGE_PROVIDER_NOT_CONFIGURED' ? 400
+      : code === 'IMAGE_PROVIDER_UNAUTHORIZED' ? 401
+        : code === 'IMAGE_PROVIDER_NO_MODELS' ? 404
+          : 502;
+    sendCallback(response, status, { error: error?.message || String(error), code }, callback, cors);
+  }
 }
 
 async function readBody(request, limit = 10 * 1024 * 1024) {
@@ -71,10 +165,14 @@ export async function startServer(engine, { port = 4174, host = '127.0.0.1' } = 
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new VideoStudioError('工作台端口必须在 1–65535 之间。', 'INVALID_PORT');
   const server = http.createServer(async (request, response) => {
     try {
-      assertLocalRequest(request, port);
       const url = new URL(request.url || '/', `http://${request.headers.host || `127.0.0.1:${port}`}`);
       const pathname = decodeURIComponent(url.pathname);
       const method = request.method || 'GET';
+
+      if ((method === 'GET' || method === 'OPTIONS') && pathname === '/api/image-models') {
+        return await serveImageModels(request, response, engine, port, url, method);
+      }
+      assertLocalRequest(request, port);
 
       if (method === 'GET' && pathname === '/') {
         const html = await readFile(path.join(PUBLIC_DIR, 'index.html'));

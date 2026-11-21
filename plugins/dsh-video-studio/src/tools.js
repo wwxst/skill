@@ -34,6 +34,12 @@ export function createToolDefinitions(engine) {
       () => engine.status(), true,
     ),
     definition(
+      'video_image_models',
+      '读取图片生成服务当前可用的模型列表（OpenAI 兼容 /models 接口）。设置页的「获取模型」按钮调用同一能力；需要先配置图片生成 API Key。',
+      {}, [],
+      () => engine.imageModels(), true,
+    ),
+    definition(
       'video_project_create',
       '创建本地视频项目。默认 9:16 竖屏 1080x1920；也支持 16:9、1:1 或自定义偶数宽高。',
       {
@@ -349,7 +355,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_image_generate',
-      '按镜头画面描述调用兼容 OpenAI Images API 的图片生成服务，生成图片后自动存入素材库并导入项目；可选 shotIndex 自动绑定到镜头。图片生成可能产生费用，必须先向用户说明并取得明确确认，再设置 confirmCost=true。',
+      '按镜头画面描述提交图片生成任务（兼容 OpenAI Images API）。立即返回 jobId，生成可能持续数分钟，必须用 video_job_status 轮询到终态；完成后图片自动存入素材库并导入项目，可选 shotIndex 自动绑定到镜头。图片生成可能产生费用，必须先向用户说明并取得明确确认，再设置 confirmCost=true。',
       {
         projectId: string('目标项目 ID'),
         prompt: string('详细图片生成提示词'),
@@ -505,7 +511,7 @@ export const videoStudioInstructions = `你已连接 Video Studio 本地视频�
 标准制作流程：video_project_create → video_asset_import / video_library_import → video_project_get → 规划镜头 → 搜索或生成素材 → video_storyboard_create → 为每个镜头绑定素材 → video_storyboard_apply → 检查时间线和字幕 → video_render → video_job_status 轮询到终态 → video_quality_check → video_output_list。
 面向美区 TikTok 的模板内容，必须先明确 goal=acquisition（拉新）或 goal=activation（拉活），在 video_template_list 中选择 locale=en-US 且 goal 匹配的模板；不要默认用 cinematic-photo 夜景幻灯片。美区内容应围绕换装、照片前后对比、纪念回顾、宠物、毕业或关系类照片转场等真实可套用的编辑效果，英文字幕/英文搜索关键词，镜头之间有明显变化；不要把东亚霓虹街景配中文诗意字幕包装成美区模板。拉新要结果前置，文案匹配 TikTok 真正挂出的 CapCut 系统锚点，符合仓库 Skill capcut-launch-tiktok；拉活以视觉成片/节奏和自然展示为主，避免硬引导。无论哪类，插件生成的是 MP4 展示视频，不是 CapCut 可替换素材的原生模板；发布前必须确认真实 CapCut 模板可用、对应锚点已正确设置，不能虚构“点左下角即可使用”。严禁未经确认就宣称视频已具备原生模板和 TikTok 锚点。
 镜头规划由当前对话 AI 根据用户选题、脚本、目标账号和时长生成；每个镜头写清画面描述、素材搜索词、时长、旁白、字幕和转场，再保存为 storyboard。Pixabay 搜索结果必须保留来源页面和作者信息；下载时记录 Pixabay Content License 和来源。Pixabay API 有速率限制，搜索结果缓存 24 小时，不要自动批量抓取或系统性下载。
-图片生成可能产生费用。没有用户明确同意时，绝不能调用付费生成；只有用户确认后才能把 confirmCost 设置为 true。生成图片会自动进入本地素材库并导入项目。素材库按 SHA-256 去重，可用标签管理和跨项目复用。
+图片生成可能产生费用。没有用户明确同意时，绝不能调用付费生成；只有用户确认后才能把 confirmCost 设置为 true。它返回 jobId 而不是图片：生成可能持续数分钟，必须用 video_job_status 轮询到 completed，再读取结果里的 libraryId 和 assetId。生成图片会自动进入本地素材库并导入项目。素材库按 SHA-256 去重，可用标签管理和跨项目复用。
 项目素材只能从允许目录导入。默认允许当前工作目录、用户主目录和 Video Studio 数据目录；遇到 ASSET_PATH_NOT_ALLOWED 时提示用户配置 allowedRoots，不要绕过安全限制。
 video_project_duplicate 可从同一源项目复制不同画幅、分辨率、帧率和标题版本；之后用 video_batch_render 顺序批量渲染。批量任务单项失败不会阻止其他项目，进程中断后可用 video_job_retry 只重试未完成项。
 每次渲染后会自动执行一次基础质量检查，另可用 video_quality_check 检查黑场、静帧、音频响度、静音区间、字幕阅读速度和文字可读性。当前 storyboard 的静态图片默认不运动；要加入轻微推拉时才显式设置 motionType 和 motionIntensity。美区转场模板使用稳定静帧与短促切换，避免连续长段无意义推拉。自动检测是辅助提示，不代替人工审片。

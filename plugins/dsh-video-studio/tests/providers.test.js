@@ -73,6 +73,69 @@ test('Pixabay download rejects a URL outside the Pixabay CDN allowlist', async (
   await assert.rejects(provider.download({ mediaId: '123', mediaType: 'image' }), (error) => error.code === 'REMOTE_HOST_NOT_ALLOWED');
 });
 
+test('Pixabay download retries the 429 burst limit and then succeeds', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-pixabay-retry-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let fileCalls = 0;
+  const fetchImpl = async (input) => {
+    const url = new URL(input);
+    if (url.hostname === 'pixabay.com') {
+      return new Response(JSON.stringify({ total: 1, totalHits: 1, hits: [hit] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    fileCalls += 1;
+    if (fileCalls < 3) return new Response('', { status: 429, headers: { 'retry-after': '0' } });
+    return new Response(png, { status: 200, headers: { 'content-type': 'image/png', 'content-length': String(png.length) } });
+  };
+  const provider = new PixabayProvider({ apiKey: 'test-secret', cacheDir: root, fetchImpl, retryDelaysMs: [0, 0] });
+  const downloaded = await provider.download({ mediaId: '123', mediaType: 'image' });
+  assert.equal(downloaded.extension, '.png');
+  assert.equal(fileCalls, 3, 'two 429 responses are retried before the successful attempt');
+});
+
+test('Pixabay download explains the burst limit once the retries are exhausted', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-pixabay-429-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let fileCalls = 0;
+  const fetchImpl = async (input) => {
+    const url = new URL(input);
+    if (url.hostname === 'pixabay.com') {
+      return new Response(JSON.stringify({ total: 1, totalHits: 1, hits: [hit] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    fileCalls += 1;
+    return new Response('', { status: 429 });
+  };
+  const provider = new PixabayProvider({ apiKey: 'test-secret', cacheDir: root, fetchImpl, retryDelaysMs: [0, 0] });
+  await assert.rejects(provider.download({ mediaId: '123', mediaType: 'image' }), (error) => {
+    assert.equal(error.code, 'PIXABAY_DOWNLOAD_FAILED');
+    assert.match(error.message, /HTTP 429/);
+    assert.match(error.message, /避免同时下载多个素材/);
+    return true;
+  });
+  assert.equal(fileCalls, 3, 'one attempt plus two retries');
+});
+
+test('Pixabay downloads are serialized so they do not trip the burst limit', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-pixabay-serial-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const events = [];
+  const fetchImpl = async (input) => {
+    const url = new URL(input);
+    if (url.hostname === 'pixabay.com') {
+      return new Response(JSON.stringify({ total: 1, totalHits: 1, hits: [hit] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    events.push('start');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    events.push('end');
+    return new Response(png, { status: 200, headers: { 'content-type': 'image/png', 'content-length': String(png.length) } });
+  };
+  const provider = new PixabayProvider({ apiKey: 'test-secret', cacheDir: root, fetchImpl, retryDelaysMs: [] });
+  await Promise.all([
+    provider.download({ mediaId: '123', mediaType: 'image' }),
+    provider.download({ mediaId: '123', mediaType: 'image' }),
+  ]);
+  assert.deepEqual(events, ['start', 'end', 'start', 'end'], 'a second download waits for the first file fetch');
+});
+
 test('OpenAI-compatible image generation validates returned PNG bytes', async () => {
   const fetchImpl = async (url, options) => {
     assert.equal(String(url), 'https://images.example/v1/images/generations');
@@ -91,6 +154,99 @@ test('OpenAI-compatible image generation validates returned PNG bytes', async ()
   assert.equal(result.extension, '.png');
   assert.equal(result.buffer.length, png.length);
   assert.equal(provider.configured, true);
+});
+
+test('explains a 405 as a missing API prefix instead of dumping an nginx page', async () => {
+  const provider = createImageGenerationProvider({
+    imageApiKey: 'test-key',
+    imageApiBaseUrl: 'https://images.example',
+    fetchImpl: async () => new Response('<html><title>405 Not Allowed</title>nginx</html>', { status: 405 }),
+  });
+  await assert.rejects(provider.generate({ prompt: 'A test image' }), (error) => {
+    assert.equal(error.code, 'IMAGE_PROVIDER_REQUEST_FAILED');
+    assert.match(error.message, /HTTP 405/);
+    assert.match(error.message, /Base URL 可能缺少 API 前缀/);
+    assert.equal(error.message.includes('<html>'), false);
+    return true;
+  });
+});
+
+test('image generation waits ten minutes by default and stays configurable', async () => {
+  const { resolveImageTimeoutMs } = await import('../src/providers/image-generation.js');
+  assert.equal(resolveImageTimeoutMs({}), 600000);
+  assert.equal(resolveImageTimeoutMs({ imageTimeoutMs: 900000 }), 900000);
+  assert.equal(resolveImageTimeoutMs({ imageTimeoutMs: '450000' }), 450000);
+  assert.equal(resolveImageTimeoutMs({ imageTimeoutMs: 1000 }), 600000, 'below the floor falls back to the default');
+  assert.equal(resolveImageTimeoutMs({ imageTimeoutMs: 'abc' }), 600000);
+  assert.equal(resolveImageTimeoutMs({ imageTimeoutMs: 999999999 }), 600000, 'absurd waits fall back to the default');
+});
+
+test('reports a generation timeout with actionable advice', async () => {
+  const provider = createImageGenerationProvider({
+    imageApiKey: 'test-key',
+    imageApiBaseUrl: 'https://images.example/v1',
+    imageTimeoutMs: 5000,
+    fetchImpl: async () => {
+      const error = new Error('The operation was aborted due to timeout');
+      error.name = 'TimeoutError';
+      throw error;
+    },
+  });
+  await assert.rejects(provider.generate({ prompt: 'slow' }), (error) => {
+    assert.equal(error.code, 'IMAGE_PROVIDER_TIMEOUT');
+    assert.match(error.message, /超时/);
+    assert.match(error.message, /imageTimeoutMs/);
+    return true;
+  });
+});
+
+test('lists image models from the OpenAI-compatible /models endpoint', async () => {
+  const fetchImpl = async (url, options) => {
+    assert.equal(String(url), 'https://images.example/v1/models');
+    assert.equal(options.headers.authorization, 'Bearer test-key');
+    const payload = { data: [{ id: 'gpt-image-1' }, { id: 'dall-e-3' }, { id: 'gpt-image-1' }] };
+    return new Response(JSON.stringify(payload), { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const provider = createImageGenerationProvider({
+    imageApiKey: 'test-key',
+    imageApiBaseUrl: 'https://images.example/v1',
+    fetchImpl,
+  });
+  const result = await provider.listModels();
+  assert.deepEqual(result.models, ['dall-e-3', 'gpt-image-1']);
+  assert.equal(result.count, 2);
+  assert.equal(result.baseUrl, 'https://images.example/v1');
+});
+
+test('model listing follows a changed volatile key without rebuilding the provider', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push(options.headers.authorization);
+    return new Response(JSON.stringify({ data: [{ id: 'live-model' }] }), { status: 200 });
+  };
+  let key;
+  const provider = createImageGenerationProvider({
+    imageApiKey: { get: () => key },
+    imageApiBaseUrl: 'https://images.example/v1',
+    fetchImpl,
+  });
+  await assert.rejects(provider.listModels(), (error) => error.code === 'IMAGE_PROVIDER_NOT_CONFIGURED');
+  key = 'late-key';
+  assert.deepEqual((await provider.listModels()).models, ['live-model']);
+  assert.deepEqual(calls, ['Bearer late-key']);
+});
+
+test('model listing reports authorization failures without leaking the key', async () => {
+  const provider = createImageGenerationProvider({
+    imageApiKey: 'super-secret',
+    imageApiBaseUrl: 'https://images.example/v1',
+    fetchImpl: async () => new Response('invalid key super-secret', { status: 401 }),
+  });
+  await assert.rejects(provider.listModels(), (error) => {
+    assert.equal(error.code, 'IMAGE_PROVIDER_UNAUTHORIZED');
+    assert.equal(error.message.includes('super-secret'), false);
+    return true;
+  });
 });
 
 test('image generation fails clearly when API credentials are missing', async () => {

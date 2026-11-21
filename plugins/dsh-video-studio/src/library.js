@@ -285,6 +285,6 @@ export function createMediaLibrary({ dataDir, resolveAllowedFile, store, ffprobe
     cacheDir,
     get pixabayConfigured() { return Boolean(pixabay?.configured); },
     get imageGenerationConfigured() { return Boolean(imageProvider?.configured); },
-    imageModel: imageProvider?.model || null,
+    get imageModel() { return imageProvider?.model || null; },
   };
 }

@@ -433,27 +433,92 @@ export async function createEngine(config = {}) {
     return library.importToProject(args);
   }
 
+  /**
+   * Image generation takes minutes on real providers, longer than a tool call may
+   * stay open, so it runs as a job like rendering: submit, then poll the job.
+   */
   async function imageGenerate({ projectId, prompt, confirmCost, shotIndex, size, quality, outputFormat, tags, name } = {}) {
     if (confirmCost !== true) throw new VideoStudioError('图片生成可能产生 API 费用。请先取得用户明确确认，并设置 confirmCost=true。', 'IMAGE_GENERATION_CONFIRMATION_REQUIRED');
+    if (typeof prompt !== 'string' || !prompt.trim()) throw new VideoStudioError('图片生成提示词不能为空。', 'INVALID_ARGUMENT');
     if (shotIndex !== undefined && shotIndex !== null) {
       if (!Number.isInteger(shotIndex) || shotIndex < 1 || shotIndex > 50) throw new VideoStudioError('shotIndex 必须是 1–50 的镜头序号。', 'INVALID_ARGUMENT');
       const project = await store.getRawProject(projectId);
       if (!project.storyboard?.shots?.[shotIndex - 1]) throw new VideoStudioError('项目中不存在第 ' + shotIndex + ' 个镜头。', 'STORYBOARD_NOT_FOUND');
     }
-    const item = await library.generateImage({ prompt, size, quality, outputFormat, tags, name });
-    const imported = await library.importToProject({ projectId, libraryId: item.id, label: name || item.name });
-    if (shotIndex !== undefined && shotIndex !== null) {
-      const updated = await store.withProjectLock(projectId, async () => {
-        const project = await store.getRawProject(projectId);
-        if (!project.storyboard?.shots?.[shotIndex - 1]) throw new VideoStudioError('项目中不存在第 ' + shotIndex + ' 个镜头。', 'STORYBOARD_NOT_FOUND');
-        project.storyboard.shots[shotIndex - 1].assetId = imported.asset.id;
-        project.revision += 1;
-        await store.saveRawProject(project);
-        return { revision: project.revision, storyboard: project.storyboard };
-      });
-      imported.revision = updated.revision;
-    }
-    return { ...imported, libraryId: item.id, generated: true, model: item.sources?.[0]?.model || library.imageModel };
+    const job = {
+      id: id('job'),
+      kind: 'image-generate',
+      projectId,
+      status: 'queued',
+      progress: 0,
+      stage: '等待执行',
+      promptPreview: prompt.slice(0, 120),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      finishedAt: null,
+      result: null,
+      error: null,
+    };
+    await saveJob(job);
+    const controller = new AbortController();
+    const entry = { controller, task: null };
+    jobs.set(job.id, entry);
+    entry.task = (async () => {
+      try {
+        job.status = 'running';
+        job.progress = 10;
+        job.stage = '正在生成图片';
+        await saveJob(job);
+        const item = await library.generateImage({ prompt, size, quality, outputFormat, tags, name });
+        if (controller.signal.aborted) throw controller.signal.reason;
+        job.progress = 80;
+        job.stage = '正在入库并导入项目';
+        await saveJob(job);
+        const imported = await library.importToProject({ projectId, libraryId: item.id, label: name || item.name });
+        if (shotIndex !== undefined && shotIndex !== null) {
+          const updated = await store.withProjectLock(projectId, async () => {
+            const project = await store.getRawProject(projectId);
+            if (!project.storyboard?.shots?.[shotIndex - 1]) throw new VideoStudioError('项目中不存在第 ' + shotIndex + ' 个镜头。', 'STORYBOARD_NOT_FOUND');
+            project.storyboard.shots[shotIndex - 1].assetId = imported.asset.id;
+            project.revision += 1;
+            await store.saveRawProject(project);
+            return { revision: project.revision, storyboard: project.storyboard };
+          });
+          imported.revision = updated.revision;
+        }
+        job.status = 'completed';
+        job.progress = 100;
+        job.stage = '已完成';
+        job.result = { ...imported, libraryId: item.id, generated: true, model: item.sources?.[0]?.model || library.imageModel };
+        job.finishedAt = new Date().toISOString();
+        await saveJob(job);
+      } catch (error) {
+        if (controller.signal.aborted || error?.name === 'AbortError' || error?.code === 'JOB_CANCELLED') {
+          job.status = 'cancelled';
+          job.stage = '已取消';
+          job.error = '任务已取消。';
+        } else {
+          job.status = 'failed';
+          job.stage = '执行失败';
+          job.error = error?.message || String(error);
+          job.errorCode = error?.code || 'IMAGE_GENERATION_FAILED';
+        }
+        job.finishedAt = new Date().toISOString();
+        await saveJob(job).catch(() => {});
+      } finally {
+        jobs.delete(job.id);
+      }
+    })();
+    return {
+      jobId: job.id,
+      status: job.status,
+      projectId,
+      message: '图片生成任务已提交（可能产生费用）。请用 video_job_status 轮询到 completed，成片入库后结果里有 libraryId 和 assetId。',
+    };
+  }
+
+  async function imageModels() {
+    return imageProvider.listModels();
   }
 
   async function storyboardCreate({ projectId, expectedRevision, topic, script, shots }) {
@@ -751,6 +816,7 @@ export async function createEngine(config = {}) {
     libraryTag,
     libraryImport,
     imageGenerate,
+    imageModels,
     storyboardCreate,
     storyboardGet,
     storyboardApply,

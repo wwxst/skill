@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { ensureDir, readJson, writeJsonAtomic } from '../util.js';
+import { ensureDir, liveValue, readJson, writeJsonAtomic } from '../util.js';
 import { VideoStudioError } from '../errors.js';
 
 const IMAGE_API = 'https://pixabay.com/api/';
@@ -111,14 +111,25 @@ function assertMediaSignature(buffer, mediaType, extension) {
 }
 
 export class PixabayProvider {
-  constructor({ apiKey = process.env.DSH_VIDEO_STUDIO_PIXABAY_API_KEY, cacheDir, fetchImpl = globalThis.fetch, maxDownloadBytes = MAX_DOWNLOAD_BYTES } = {}) {
-    this.apiKey = String(apiKey || '').trim();
+  constructor({ apiKey = process.env.DSH_VIDEO_STUDIO_PIXABAY_API_KEY, cacheDir, fetchImpl = globalThis.fetch, maxDownloadBytes = MAX_DOWNLOAD_BYTES, retryDelaysMs = [1200, 3000, 6000] } = {}) {
+    // The key may be a live volatile field, so resolve it on every read instead of
+    // snapshotting it here; the settings page edits it while the plugin is running.
+    this.apiKeySource = apiKey;
     this.cacheDir = cacheDir;
     this.fetchImpl = fetchImpl;
+    // pixabay.com/get/ sits behind a per-IP Cloudflare rate limit that answers 429
+    // (with Retry-After: 0) when several files are fetched back to back.
+    this.retryDelaysMs = retryDelaysMs;
+    this.downloadChain = Promise.resolve();
     if (!Number.isInteger(maxDownloadBytes) || maxDownloadBytes < 1 || maxDownloadBytes > MAX_DOWNLOAD_BYTES) {
       throw new VideoStudioError('Pixabay 下载大小上限配置无效。', 'INVALID_ARGUMENT');
     }
     this.maxDownloadBytes = maxDownloadBytes;
+  }
+
+  get apiKey() {
+    const raw = liveValue(this.apiKeySource) ?? process.env.DSH_VIDEO_STUDIO_PIXABAY_API_KEY ?? '';
+    return String(raw).trim();
   }
 
   get configured() { return Boolean(this.apiKey); }
@@ -202,7 +213,34 @@ export class PixabayProvider {
     return hit;
   }
 
-  async download({ mediaId, mediaType = 'image', signal } = {}) {
+  /** Fetch one file, retrying the transient 429/503 the download host returns. */
+  async fetchDownload(url, signal) {
+    const delays = this.retryDelaysMs;
+    let response;
+    for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+      response = await this.fetchImpl(url, { redirect: 'manual', signal: signal || AbortSignal.timeout(30000) });
+      if (response.status !== 429 && response.status !== 503) return response;
+      if (attempt === delays.length) return response;
+      try { await response.body?.cancel(); } catch { /* The body may already be closed. */ }
+      const retryAfter = Number(response.headers.get('retry-after'));
+      const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 15000) : delays[attempt];
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+    return response;
+  }
+
+  /**
+   * Downloads share one queue: the download host throttles bursts per IP, and the
+   * retries above are only useful when parallel calls are not fighting each other.
+   */
+  download(args) {
+    const run = () => this.downloadOnce(args);
+    const task = this.downloadChain.then(run, run);
+    this.downloadChain = task.then(() => undefined, () => undefined);
+    return task;
+  }
+
+  async downloadOnce({ mediaId, mediaType = 'image', signal } = {}) {
     const hit = await this.getById(mediaId, mediaType, signal);
     const downloadUrl = mediaType === 'video'
       ? (hit.videos?.medium?.url || hit.videos?.small?.url || hit.videos?.tiny?.url || hit.videos?.large?.url)
@@ -211,14 +249,17 @@ export class PixabayProvider {
     let url = assertPixabayUrl(downloadUrl);
     let response;
     for (let redirects = 0; redirects <= 3; redirects += 1) {
-      response = await this.fetchImpl(url, { redirect: 'manual', signal: signal || AbortSignal.timeout(30000) });
+      response = await this.fetchDownload(url, signal);
       if (![301, 302, 303, 307, 308].includes(response.status)) break;
       if (redirects === 3) throw new VideoStudioError('Pixabay 下载重定向次数过多。', 'REMOTE_REDIRECT_LIMIT');
       const location = response.headers.get('location');
       if (!location) throw new VideoStudioError('Pixabay 下载重定向缺少 Location。', 'INVALID_REMOTE_REDIRECT');
       url = assertPixabayUrl(new URL(location, url).toString());
     }
-    if (!response?.ok) throw new VideoStudioError('Pixabay 素材下载失败，HTTP ' + (response?.status || 0), 'PIXABAY_DOWNLOAD_FAILED');
+    if (!response?.ok) {
+      const hint = response?.status === 429 ? ' 下载已自动重试，仍被限流；请稍等再试，并避免同时下载多个素材。' : '';
+      throw new VideoStudioError('Pixabay 素材下载失败，HTTP ' + (response?.status || 0) + hint, 'PIXABAY_DOWNLOAD_FAILED');
+    }
     const declaredSize = Number(response.headers.get('content-length')) || 0;
     if (declaredSize > this.maxDownloadBytes) throw new VideoStudioError('素材超过 ' + Math.round(this.maxDownloadBytes / (1024 * 1024)) + 'MB 下载上限。', 'REMOTE_MEDIA_TOO_LARGE');
     const mimeType = response.headers.get('content-type') || '';

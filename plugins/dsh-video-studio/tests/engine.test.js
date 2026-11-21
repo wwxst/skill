@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createEngine } from '../src/engine.js';
 import { probeMedia } from '../src/media.js';
@@ -87,13 +88,22 @@ test('creates project, imports media, guards revisions, and renders a real MP4',
 
 test('rejects media paths outside configured roots', async (t) => {
   const allowed = await mkdtemp(path.join(os.tmpdir(), 'dsh-video-allowed-'));
-  const candidates = [process.env.RUNNER_TEMP, os.tmpdir()].filter(Boolean);
+  // Compare canonical paths: Windows may hand out 8.3 short names (ADMINI~1) for
+  // %TEMP% while os.homedir() returns the long form, and the store itself resolves
+  // real paths before deciding whether a source is inside an allowed root.
+  const canonical = (value) => {
+    try { return realpathSync.native(value); } catch { return path.resolve(value); }
+  };
+  const candidates = [process.env.RUNNER_TEMP, os.tmpdir()].filter(Boolean).map(canonical);
   const isInside = (parent, child) => {
-    const relative = path.relative(path.resolve(parent), path.resolve(child));
+    const relative = path.relative(canonical(parent), canonical(child));
     return relative === '' || (relative !== '..' && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative));
   };
   const deniedBase = candidates.find((candidate) => !isInside(os.homedir(), candidate) && !isInside(process.cwd(), candidate));
-  if (!deniedBase) throw new Error('Test runner has no writable temporary directory outside default allowed roots.');
+  if (!deniedBase) {
+    t.skip('This runner keeps its temporary directory inside the always-allowed home or working directory, so no path can be denied.');
+    return;
+  }
   const denied = await mkdtemp(path.join(deniedBase, 'dsh-video-denied-'));
   const dataDir = path.join(allowed, 'data');
   await mkdir(dataDir, { recursive: true });
