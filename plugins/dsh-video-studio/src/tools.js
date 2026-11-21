@@ -458,6 +458,30 @@ export function createToolDefinitions(engine) {
       }, [],
       (args) => engine.performanceSummary(args), true,
     ),
+    definition(
+      'video_tiktok_video_list',
+      '通过 TikTok 官方 Display API 读取当前授权账号最近发布的公开作品及播放、点赞、评论、分享数据。需要 TikTok 开发者应用获批 video.list 权限并配置 OAuth 令牌。',
+      { limit: number('读取最近 1–200 条作品，默认 100') }, [],
+      (args) => engine.tiktokVideoList(args), true,
+    ),
+    definition(
+      'video_tiktok_sync',
+      '把 TikTok 官方 API 返回的真实作品指标同步到对应 Video Studio 项目。先调用 video_tiktok_video_list 获取 videoId，再提供 projectId 和账号类型。每次同步会保存一条数据快照。',
+      {
+        limit: number('先读取最近多少条作品，1–200，默认 100'),
+        mappings: { type: 'array', minItems: 1, maxItems: 200, items: {
+          type: 'object',
+          properties: {
+            videoId: string('TikTok videoId'), projectId: string('对应的 Video Studio 项目 ID'),
+            accountType: enumString('账号类型', ['acquisition', 'mid-video', 'other']),
+            objective: string('运营目标，可选'), topic: string('选题，可选；默认使用作品标题'),
+            hookType: string('开头类型，可选'), cta: string('行动引导，可选'), templateId: string('模板 ID，可选'),
+          },
+          required: ['videoId', 'projectId'], additionalProperties: false,
+        } },
+      }, ['mappings'],
+      (args) => engine.tiktokSync(args),
+    ),
   ];
 }
 
@@ -469,7 +493,7 @@ export const videoStudioInstructions = `你已连接 Video Studio 本地视频�
 项目素材只能从允许目录导入。默认允许当前工作目录、用户主目录和 Video Studio 数据目录；遇到 ASSET_PATH_NOT_ALLOWED 时提示用户配置 allowedRoots，不要绕过安全限制。
 video_project_duplicate 可从同一源项目复制不同画幅、分辨率、帧率和标题版本；之后用 video_batch_render 顺序批量渲染。批量任务单项失败不会阻止其他项目，进程中断后可用 video_job_retry 只重试未完成项。
 每次渲染后会自动执行一次基础质量检查，另可用 video_quality_check 检查黑场、静帧、音频响度、静音区间、字幕阅读速度和文字可读性。自动检测是辅助提示，不代替人工审片。
-发布后把 TikTok 实际数据通过 video_performance_record 录入，再用 video_performance_summary 比较项目号（acquisition）和中视频号（mid-video）的表现。只能录入真实数据；样本量不足时不能把比例推断为确定规律。
+TikTok 实际数据可通过 video_tiktok_video_list 读取授权账号作品，再用 video_tiktok_sync 将真实播放、点赞、评论、分享快照映射到项目；主页访问、关注和 CPS 转化通过 video_performance_record 补录。再用 video_performance_summary 比较项目号（acquisition）和中视频号（mid-video）的表现。只能录入真实数据；样本量不足时不能把比例推断为确定规律。
 修改时间线、字幕、镜头清单或复制项目前，必须先 video_project_get 获取最新 revision；遇到 REVISION_CONFLICT 重新读取后再修改。模板目前只保存图片时间线、镜头运动、转场和文字样式，不覆盖目标项目的画幅、分辨率和 FPS。
 当前仍不支持自动语音识别（ASR）、AI 语音合成（TTS）、CapCut 原生草稿导出、专业节点调色和专业级多轨合成。不要声称这些能力已实现。用户提供的音乐、旁白和 SRT 可以导入并参与渲染。
 渲染任务返回 jobId 后必须轮询到终态；提交不等于完成。成片完成后核对时长、分辨率、音轨和质量检查结果。`;

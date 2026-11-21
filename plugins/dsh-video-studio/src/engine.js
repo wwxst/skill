@@ -12,6 +12,7 @@ import { createMediaLibrary } from './library.js';
 import { normalizeStoryboard, compileStoryboard } from './storyboard.js';
 import { analyzeMediaQuality } from './quality.js';
 import { createPerformanceStore } from './analytics.js';
+import { TikTokProvider } from './providers/tiktok.js';
 import { timelineDuration } from './templates/schema.js';
 
 export async function createEngine(config = {}) {
@@ -31,6 +32,15 @@ export async function createEngine(config = {}) {
     imageModel: config.imageModel,
     fetchImpl: config.fetchImpl,
   });
+  const tiktok = new TikTokProvider({
+    dataDir: store.dataDir,
+    clientKey: config.tiktokClientKey,
+    clientSecret: config.tiktokClientSecret,
+    accessToken: config.tiktokAccessToken,
+    refreshToken: config.tiktokRefreshToken,
+    fetchImpl: config.fetchImpl,
+  });
+  await tiktok.initialize();
   const library = createMediaLibrary({
     dataDir: store.dataDir,
     resolveAllowedFile: store.resolveAllowedFile,
@@ -590,6 +600,37 @@ export async function createEngine(config = {}) {
     return performanceStore.summary(args);
   }
 
+  async function tiktokVideoList(args) { return tiktok.listVideos(args); }
+
+  async function tiktokSync({ mappings, limit = 100 } = {}) {
+    if (!Array.isArray(mappings) || mappings.length < 1 || mappings.length > 200) throw new VideoStudioError('TikTok 同步必须提供 1–200 条作品与项目的对应关系。', 'INVALID_ARGUMENT');
+    const seen = new Set();
+    for (const mapping of mappings) {
+      if (!mapping || !/^\\d{8,30}$/.test(String(mapping.videoId || ''))) throw new VideoStudioError('每条映射都必须提供有效的 TikTok videoId。', 'INVALID_ARGUMENT');
+      if (seen.has(String(mapping.videoId))) throw new VideoStudioError('同一批次不能重复映射同一个 TikTok videoId。', 'INVALID_ARGUMENT');
+      seen.add(String(mapping.videoId));
+      if (!['acquisition', 'mid-video', 'other'].includes(mapping.accountType || 'acquisition')) throw new VideoStudioError('账号类型无效。', 'INVALID_ARGUMENT');
+      await store.getRawProject(mapping.projectId);
+    }
+    const result = await tiktok.listVideos({ limit });
+    const byId = new Map(result.videos.map((video) => [video.id, video]));
+    const synced = [], missing = [];
+    for (const mapping of mappings) {
+      const video = byId.get(String(mapping.videoId));
+      if (!video) { missing.push({ videoId: String(mapping.videoId), reason: '最近作品列表中没有该 ID；可能超出同步范围或不属于当前授权账号。' }); continue; }
+      const record = await performanceStore.record({
+        projectId: mapping.projectId, accountType: mapping.accountType || 'acquisition',
+        objective: mapping.objective, topic: mapping.topic || video.title, hookType: mapping.hookType,
+        cta: mapping.cta, templateId: mapping.templateId, postUrl: video.shareUrl,
+        platformVideoId: video.id, source: 'tiktok-display-api', availableMetrics: video.availableMetrics,
+        postedAt: video.createTime || undefined, views: video.metrics.views ?? 0,
+        likes: video.metrics.likes ?? 0, comments: video.metrics.comments ?? 0, shares: video.metrics.shares ?? 0,
+      });
+      synced.push({ videoId: video.id, projectId: mapping.projectId, recordId: record.id, metrics: video.metrics, availableMetrics: video.availableMetrics });
+    }
+    return { provider: 'tiktok-display-api', syncedCount: synced.length, missingCount: missing.length, synced, missing, unavailableMetrics: result.metricsUnavailable, note: '仅同步 API 实际返回的播放、点赞、评论、分享；主页访问、关注和转化需要另行补录。' };
+  }
+
   async function status() {
     const [ffmpeg, ffprobe, ffmpegCapabilities] = await Promise.all([
       checkBinary(ffmpegPath),
@@ -620,6 +661,7 @@ export async function createEngine(config = {}) {
       batchRendering: true,
       failedJobRetry: true,
       tiktokPerformanceFeedback: true,
+      tiktokDisplayApi: tiktok.configured,
     };
     const missingFeatures = [];
     if (!ffmpeg.available) missingFeatures.push('FFmpeg');
@@ -649,6 +691,7 @@ export async function createEngine(config = {}) {
       providers: {
         pixabay: { configured: library.pixabayConfigured },
         imageGeneration: { configured: library.imageGenerationConfigured, model: library.imageModel },
+        tiktok: { configured: tiktok.configured, automaticRefresh: Boolean(config.tiktokClientKey || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY) && Boolean(config.tiktokClientSecret || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET) },
       },
       dataDir: store.dataDir,
       allowedRoots: store.allowedRoots,
@@ -697,6 +740,8 @@ export async function createEngine(config = {}) {
     projectDuplicate,
     performanceRecord,
     performanceSummary,
+    tiktokVideoList,
+    tiktokSync,
     close,
   };
 }
