@@ -171,3 +171,43 @@ test('applies, renders, saves, and reuses a cinematic photo template', async (t)
   assert.equal(reusedProject.output.height, 270);
   assert.equal(reusedProject.output.fps, 30);
 });
+
+test('renders the US acquisition photo reveal without unwanted image movement', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'dsh-video-us-reveal-test-'));
+  const dataDir = path.join(root, 'data');
+  const before = path.join(root, 'before.png');
+  const after = path.join(root, 'after.png');
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(dataDir, { recursive: true });
+  await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=blue:s=180x320:d=1', '-vf', 'drawbox=x=25:y=40:w=100:h=120:color=yellow:t=fill', '-frames:v', '1', before]);
+  await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=180x320:d=1', '-vf', 'drawbox=x=25:y=40:w=100:h=120:color=white:t=fill', '-frames:v', '1', after]);
+  const engine = await createEngine({ dataDir, allowedRoots: [root] });
+  t.after(() => engine.close());
+  const project = await engine.createProject({ title: 'US CapCut Photo Reveal Preview', aspectRatio: '9:16', width: 180, height: 320, fps: 30 });
+  const a = await engine.importAsset({ projectId: project.id, sourcePath: before, role: 'image' });
+  const b = await engine.importAsset({ projectId: project.id, sourcePath: after, role: 'image' });
+  const current = await engine.getProject(project.id);
+  const applied = await engine.templateApply({
+    projectId: project.id, expectedRevision: current.revision,
+    templateId: 'us-photo-reveal-acquisition',
+    assetIds: [b.asset.id, a.asset.id, a.asset.id, b.asset.id],
+    title: 'HOW TO MAKE THIS PHOTO EDIT',
+  });
+  assert.equal(applied.clipCount, 4);
+  assert.ok(applied.timeline.clips.every((clip) => clip.motion.type === 'none'));
+  assert.equal(applied.timeline.overlays[0].text, 'HOW TO MAKE THIS PHOTO EDIT');
+  const submitted = await engine.submitRender({ projectId: project.id, outputName: 'us-photo-reveal-test' });
+  const job = await waitForJob(engine, submitted.jobId);
+  assert.equal(job.status, 'completed', job.error || 'US photo reveal did not render');
+  const video = await engine.store.resolveProjectOutput(project.id, 'us-photo-reveal-test.mp4');
+  const media = await probeMedia(video);
+  assert.equal(media.video.width, 180);
+  assert.equal(media.video.height, 320);
+  assert.ok(media.duration > 6 && media.duration < 7);
+  const f1 = await extractFrame('ffmpeg', video, 0.35);
+  const f2 = await extractFrame('ffmpeg', video, 0.85);
+  assert.ok(
+    countDifferentPixels(f1, f2, { frameWidth: 180, frameHeight: 320 }) < 120,
+    'the first result frame must remain steady until the cut instead of zooming',
+  );
+});
