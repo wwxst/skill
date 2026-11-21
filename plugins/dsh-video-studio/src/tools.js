@@ -221,14 +221,252 @@ export function createToolDefinitions(engine) {
       {}, [],
       async () => ({ url: (await engine.status()).workbenchUrl, message: '请在运行 DeepSeek Harness 的这台电脑上打开该地址。' }), true,
     ),
+    definition(
+      'video_media_search',
+      '搜索 Pixabay 图片或视频素材。结果包含来源页面、作者、标签和预览信息；展示搜索结果时必须保留 Pixabay 来源链接。需要 API Key。',
+      {
+        query: string('搜索关键词，最多 100 字'),
+        mediaType: enumString('素材类型', ['image', 'video']),
+        orientation: enumString('画面方向', ['all', 'horizontal', 'vertical']),
+        category: string('Pixabay 分类，可选'),
+        imageType: enumString('图片类型，仅 image 搜索使用', ['all', 'photo', 'illustration', 'vector']),
+        page: number('页码 1–100，默认 1'),
+        perPage: number('每页数量 3–50，默认 20'),
+        lang: string('搜索语言代码，默认 zh'),
+        order: enumString('排序', ['popular', 'latest']),
+      }, ['query'],
+      (args) => engine.mediaSearch(args), true,
+    ),
+    definition(
+      'video_media_download',
+      '按 Pixabay 搜索结果的 ID 下载指定图片或视频到本地素材库，保存作者、来源页面和 Pixabay Content License 信息。不要批量抓取或绕过平台下载限制。',
+      {
+        mediaId: string('video_media_search 返回的 Pixabay 素材 ID'),
+        mediaType: enumString('素材类型', ['image', 'video']),
+        tags: { type: 'array', maxItems: 20, items: string('本地标签') },
+      }, ['mediaId', 'mediaType'],
+      (args) => engine.mediaDownload(args),
+    ),
+    definition(
+      'video_library_add',
+      '把允许目录中的本地素材加入中央素材库。素材按 SHA-256 去重，可记录标签，原文件不会被修改。',
+      {
+        sourcePath: string('本机素材绝对路径'),
+        role: enumString('素材类型', ['image', 'video', 'audio']),
+        name: string('素材显示名称，可选'),
+        tags: { type: 'array', maxItems: 20, items: string('素材标签') },
+      }, ['sourcePath', 'role'],
+      (args) => engine.libraryAdd(args),
+    ),
+    definition(
+      'video_library_list',
+      '按关键词、类型和标签检索本地素材库。返回素材 ID、标签、来源、作者和授权记录，不返回磁盘绝对路径。',
+      {
+        query: string('名称、标签、作者或来源关键词，可选'),
+        role: enumString('素材类型筛选', ['image', 'video', 'audio']),
+        tags: { type: 'array', maxItems: 20, items: string('必须同时匹配的标签') },
+        limit: number('返回数量 1–200，默认 100'),
+        offset: number('分页偏移量，默认 0'),
+      }, [],
+      (args) => engine.libraryList(args), true,
+    ),
+    definition(
+      'video_library_tag',
+      '给本地素材库素材添加或移除标签。',
+      {
+        libraryId: string('素材库 ID'),
+        add: { type: 'array', maxItems: 20, items: string('要添加的标签') },
+        remove: { type: 'array', maxItems: 20, items: string('要移除的标签') },
+      }, ['libraryId'],
+      (args) => engine.libraryTag(args),
+    ),
+    definition(
+      'video_library_import',
+      '把素材库中的素材复制到指定项目，项目会保存素材来源、授权和标签元数据。',
+      {
+        projectId: string('目标项目 ID'),
+        libraryId: string('素材库 ID'),
+        label: string('项目内显示名称，可选'),
+      }, ['projectId', 'libraryId'],
+      (args) => engine.libraryImport(args),
+    ),
+    definition(
+      'video_storyboard_create',
+      '保存由当前对话 AI 根据选题和脚本规划出的镜头清单。每个镜头应写清画面描述、素材搜索词、时长、旁白和字幕；保存前必须读取项目 revision。',
+      {
+        projectId: string('项目 ID'),
+        expectedRevision: number('当前项目 revision'),
+        topic: string('视频选题'),
+        script: string('完整脚本或旁白稿，可选'),
+        shots: {
+          type: 'array', minItems: 1, maxItems: 50,
+          items: {
+            type: 'object',
+            properties: {
+              title: string('镜头标题，可选'),
+              narration: string('该镜头旁白或口播，可选'),
+              visualPrompt: string('画面内容、主体、环境、构图和风格描述'),
+              searchQuery: string('适合 Pixabay 的素材搜索词，可选'),
+              duration: number('镜头时长 1–60 秒，默认 4'),
+              sourcePreference: enumString('素材来源偏好', ['auto', 'pixabay', 'generate', 'manual']),
+              assetId: string('已绑定的项目素材 ID，可选'),
+              sourceIn: number('视频素材入点秒数，可选'),
+              sourceOut: number('视频素材出点秒数，可选'),
+              transitionType: enumString('该镜头结束后的转场', ['cut', 'fade', 'dissolve', 'wipeleft', 'wiperight', 'slideleft', 'slideright', 'circleopen', 'circleclose', 'pixelize']),
+              transitionDuration: number('转场时长 0–2 秒'),
+              overlayText: string('画面字幕或标题，可选'),
+              overlayPosition: enumString('文字位置', ['top', 'center', 'bottom']),
+              fontSize: number('字号 20–120'),
+              overlayColor: string('文字颜色 #RRGGBB'),
+              overlayAnimation: enumString('文字动画', ['none', 'fade-in', 'fade-out', 'fade-in-out']),
+            },
+            required: ['visualPrompt'],
+            additionalProperties: false,
+          },
+        },
+      }, ['projectId', 'expectedRevision', 'topic', 'shots'],
+      (args) => engine.storyboardCreate(args),
+    ),
+    definition(
+      'video_storyboard_get',
+      '读取项目保存的镜头清单和每个镜头的素材绑定状态。',
+      { projectId: string('项目 ID') }, ['projectId'],
+      (args) => engine.storyboardGet(args), true,
+    ),
+    definition(
+      'video_storyboard_apply',
+      '把镜头清单和已导入素材组合成时间线。assetIds 按镜头顺序传入；如果镜头已绑定 assetId，可以省略 assetIds。必须使用最新 revision。',
+      {
+        projectId: string('项目 ID'),
+        expectedRevision: number('当前项目 revision'),
+        assetIds: { type: 'array', minItems: 1, maxItems: 50, items: string('每个镜头对应的项目素材 ID') },
+        fit: enumString('画面适配', ['crop', 'contain']),
+      }, ['projectId', 'expectedRevision'],
+      (args) => engine.storyboardApply(args),
+    ),
+    definition(
+      'video_image_generate',
+      '按镜头画面描述调用兼容 OpenAI Images API 的图片生成服务，生成图片后自动存入素材库并导入项目；可选 shotIndex 自动绑定到镜头。图片生成可能产生费用，必须先向用户说明并取得明确确认，再设置 confirmCost=true。',
+      {
+        projectId: string('目标项目 ID'),
+        prompt: string('详细图片生成提示词'),
+        confirmCost: boolean('用户已明确同意本次图片生成可能产生的费用时才设为 true'),
+        shotIndex: number('要自动绑定的镜头序号 1–50，可选'),
+        size: enumString('图片尺寸', ['1024x1024', '1024x1536', '1536x1024']),
+        quality: enumString('生成质量', ['low', 'medium', 'high', 'auto']),
+        outputFormat: enumString('图片格式', ['png', 'jpeg', 'webp']),
+        tags: { type: 'array', maxItems: 20, items: string('素材标签') },
+        name: string('素材名称，可选'),
+      }, ['projectId', 'prompt', 'confirmCost'],
+      (args) => engine.imageGenerate(args),
+    ),
+    definition(
+      'video_project_duplicate',
+      '根据当前项目复制多个制作版本。会复制项目素材、时间线、字幕和镜头清单，并为每个版本设置不同画幅、分辨率、帧率或标题文字；原项目不修改。',
+      {
+        projectId: string('源项目 ID'),
+        expectedRevision: number('源项目当前 revision'),
+        variants: {
+          type: 'array', minItems: 1, maxItems: 10,
+          items: {
+            type: 'object',
+            properties: {
+              title: string('版本项目名称，可选'),
+              aspectRatio: enumString('画幅比例', ['9:16', '16:9', '1:1']),
+              width: number('自定义宽度，必须与 height 同时提供'),
+              height: number('自定义高度，必须与 width 同时提供'),
+              fps: number('帧率 1–60，可选'),
+              overlayText: string('覆盖第一条文字或新增标题，可选'),
+              outputName: string('建议输出文件名，可选'),
+            },
+            additionalProperties: false,
+          },
+        },
+      }, ['projectId', 'expectedRevision', 'variants'],
+      (args) => engine.projectDuplicate(args),
+    ),
+    definition(
+      'video_batch_render',
+      '按顺序批量渲染 1–20 个已完成时间线的项目。每项独立记录成功或失败，单项失败不会阻止后续项目；完成后可对失败项调用 video_job_retry。',
+      {
+        items: {
+          type: 'array', minItems: 1, maxItems: 20,
+          items: {
+            type: 'object',
+            properties: {
+              projectId: string('待渲染项目 ID'),
+              outputName: string('输出文件名，可选'),
+            },
+            required: ['projectId'],
+            additionalProperties: false,
+          },
+        },
+      }, ['items'],
+      (args) => engine.submitBatchRender(args),
+    ),
+    definition(
+      'video_job_retry',
+      '重新执行失败或进程中断的渲染任务。批量任务只重试尚未成功的项目，不会重复渲染已完成项。',
+      { jobId: string('原渲染任务 ID') }, ['jobId'],
+      (args) => engine.retryJob(args),
+    ),
+    definition(
+      'video_quality_check',
+      '对指定项目最近一次或指定名称的 MP4 成片执行技术质量检查：黑场、静帧、音频响度、静音区间、字幕阅读速度和动态文字可读性。结果是辅助检查，不替代人工审片。',
+      {
+        projectId: string('项目 ID'),
+        outputName: string('要检查的成片名称，可选；省略时检查最新成片'),
+      }, ['projectId'],
+      (args) => engine.qualityCheck(args), true,
+    ),
+    definition(
+      'video_performance_record',
+      '录入 TikTok 已发布作品的真实数据，沉淀账号类型、选题、开头类型、CTA、模板和播放互动转化指标。只能录入实际数据，不要用估算值冒充真实成绩。',
+      {
+        projectId: string('对应的视频项目 ID'),
+        accountType: enumString('账号类型', ['acquisition', 'mid-video', 'other']),
+        objective: string('运营目标，例如 acquisition、traffic、conversion'),
+        topic: string('选题方向，可选'),
+        hookType: string('开头类型，可选'),
+        cta: string('行动引导，可选'),
+        templateId: string('使用的模板 ID，可选'),
+        postUrl: string('TikTok 作品链接，可选'),
+        postedAt: string('发布时间 ISO 日期，可选'),
+        views: number('实际播放量，非负整数'),
+        likes: number('实际点赞数，非负整数'),
+        comments: number('实际评论数，非负整数'),
+        shares: number('实际分享数，非负整数'),
+        saves: number('实际收藏数，非负整数'),
+        profileVisits: number('实际主页访问数，非负整数'),
+        follows: number('实际新增关注数，非负整数'),
+        conversions: number('实际下载、注册或其他转化数，非负整数'),
+      }, ['projectId'],
+      (args) => engine.performanceRecord(args),
+    ),
+    definition(
+      'video_performance_summary',
+      '根据已录入的真实发布数据，按账号目标、选题、开头类型、模板或账号类型汇总播放、互动、关注和转化率。返回样本量，不能把小样本比例当成稳定规律。',
+      {
+        groupBy: enumString('分组维度', ['objective', 'accountType', 'topic', 'hookType', 'templateId']),
+        accountType: enumString('账号类型筛选', ['acquisition', 'mid-video', 'other']),
+        from: string('统计开始日期 ISO，可选'),
+        to: string('统计结束日期 ISO，可选'),
+        limit: number('最多返回 1–200 组，默认 50'),
+      }, [],
+      (args) => engine.performanceSummary(args), true,
+    ),
   ];
 }
 
-export const videoStudioInstructions = `你已连接 Video Studio 本地视频制作插件。
-制作前先调用 video_studio_status 检查 FFmpeg/FFprobe、libx264 和关键滤镜；如果 missingFeatures 不为空，先向用户说明哪些功能不可用，不要声称完整能力已就绪。
-推荐流程：video_project_create 创建项目 → video_asset_import 导入素材 → video_project_get 查看素材信息和 revision → video_template_list 查看可用模板；有合适模板时调用 video_template_apply，没有合适模板时调用 video_timeline_update 自己编排 → 需要复用原创图片模板时调用 video_template_save → video_render 提交渲染 → 持续调用 video_job_status 直到任务进入终态 → video_output_list 核对成片。
-视频和图片素材必须先导入项目，时间线只引用项目内 assetId。视频原声会保留；图片或无原声的视频片段会补静音轨。片段按 clips 数组顺序播放。图片片段可设置 zoom-in、zoom-out、pan-left/right/up/down；转场数组必须比片段数量少一个，省略或空数组表示硬切；动态文字叠加的时间必须落在最终视频时长内。保存模板目前只支持 2–12 个图片片段，应用模板时 assetIds 按模板槽位顺序传入。
-用户保存的模板只复用图片时间线、镜头运动、转场和文字样式，不覆盖目标项目的画幅、分辨率和 FPS；模板文字字号按目标画布高度缩放。时间线和字幕修改必须使用最近一次 video_project_get 返回的 revision，出现 REVISION_CONFLICT 时重新读取后再修改。保存模板也必须传当前 revision。
-导入素材只能使用允许目录中的文件。默认允许当前工作目录和用户主目录；遇到 ASSET_PATH_NOT_ALLOWED 时，不要尝试绕过限制，应提示用户把文件放入允许目录或配置 allowedRoots。
-当前支持基础顺序剪辑、入点/出点、恒定倍速、图片推拉和平移、淡入/溶解/擦除/滑动/圆形/像素化转场、动态文字叠加、内置和用户保存的可复用模板、背景音乐、旁白混音、SRT 字幕和 MP4 导出。当前不支持自动语音识别、AI 配音、自动选镜头、在线素材搜索下载、专业节点调色和原生剪映草稿导出；不要声称这些功能已经完成。SRT 和音频素材需要用户或其他工具提供。
-渲染任务返回 jobId 后必须轮询任务状态，不能把“已提交”说成“已完成”。成片完成后核对实际输出、时长、分辨率和音轨；技术检查通过不代表叙事和视觉质量已经通过。原始素材不会被修改。`;
+export const videoStudioInstructions = `你已连接 Video Studio 本地视频制作插件（0.5.0）。
+制作前先调用 video_studio_status。检查 FFmpeg/FFprobe、libx264、libass 和关键滤镜；Pixabay 和图片生成是可选外部服务，状态会显示是否配置，不能因为未配置就误报本地剪辑引擎不可用。
+标准制作流程：video_project_create → video_asset_import / video_library_import → video_project_get → 规划镜头 → 搜索或生成素材 → video_storyboard_create → 为每个镜头绑定素材 → video_storyboard_apply → 检查时间线和字幕 → video_render → video_job_status 轮询到终态 → video_quality_check → video_output_list。
+镜头规划由当前对话 AI 根据用户选题、脚本、目标账号和时长生成；每个镜头写清画面描述、素材搜索词、时长、旁白、字幕和转场，再保存为 storyboard。Pixabay 搜索结果必须保留来源页面和作者信息；下载时记录 Pixabay Content License 和来源。Pixabay API 有速率限制，搜索结果缓存 24 小时，不要自动批量抓取或系统性下载。
+图片生成可能产生费用。没有用户明确同意时，绝不能调用付费生成；只有用户确认后才能把 confirmCost 设置为 true。生成图片会自动进入本地素材库并导入项目。素材库按 SHA-256 去重，可用标签管理和跨项目复用。
+项目素材只能从允许目录导入。默认允许当前工作目录、用户主目录和 Video Studio 数据目录；遇到 ASSET_PATH_NOT_ALLOWED 时提示用户配置 allowedRoots，不要绕过安全限制。
+video_project_duplicate 可从同一源项目复制不同画幅、分辨率、帧率和标题版本；之后用 video_batch_render 顺序批量渲染。批量任务单项失败不会阻止其他项目，进程中断后可用 video_job_retry 只重试未完成项。
+每次渲染后会自动执行一次基础质量检查，另可用 video_quality_check 检查黑场、静帧、音频响度、静音区间、字幕阅读速度和文字可读性。自动检测是辅助提示，不代替人工审片。
+发布后把 TikTok 实际数据通过 video_performance_record 录入，再用 video_performance_summary 比较项目号（acquisition）和中视频号（mid-video）的表现。只能录入真实数据；样本量不足时不能把比例推断为确定规律。
+修改时间线、字幕、镜头清单或复制项目前，必须先 video_project_get 获取最新 revision；遇到 REVISION_CONFLICT 重新读取后再修改。模板目前只保存图片时间线、镜头运动、转场和文字样式，不覆盖目标项目的画幅、分辨率和 FPS。
+当前仍不支持自动语音识别（ASR）、AI 语音合成（TTS）、CapCut 原生草稿导出、专业节点调色和专业级多轨合成。不要声称这些能力已实现。用户提供的音乐、旁白和 SRT 可以导入并参与渲染。
+渲染任务返回 jobId 后必须轮询到终态；提交不等于完成。成片完成后核对时长、分辨率、音轨和质量检查结果。`;
