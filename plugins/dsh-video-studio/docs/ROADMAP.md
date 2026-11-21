@@ -36,15 +36,16 @@
 - 黑场、静帧、静音和音频响度检查
 - SRT 字幕速度/行长和动态文字可读性启发式检查
 - 批量渲染、单项失败隔离、失败任务重试和中断任务恢复
-- TikTok OAuth 授权、令牌轮换和 Display API 作品列表及播放/点赞/评论/分享同步
+- TikTok 多账号 OAuth 授权、每账号独立 state/令牌和 refresh token 轮换
+- Display API 作品列表及播放/点赞/评论/分享同步
 - 真实发布数据补录主页访问、关注和 CPS 转化
-- 按账号类型、选题、开头和模板汇总真实表现
+- 按具体 accountId、账号类型、选题、开头和模板汇总真实表现
 
 ## 外部依赖与能力边界
 
 - Pixabay 搜索/下载需要用户自己的 API Key。
 - 图片生成需要用户自己的兼容 Images API Key；生成前必须明确确认可能产生费用。
-- TikTok 自动同步需要开发者应用获批 Login Kit / Display API 的 `video.list` scope，并由用户授权账号。
+- TikTok 自动同步需要开发者应用获批 Login Kit / Display API 的 `video.list` scope，并由用户授权账号；每个账号需使用唯一 accountId 单独授权。
 - TikTok Display API 不提供主页访问、关注、下载/注册或 CPS 转化数据，这些指标需要从业务后台导入或手动录入。
 - 当前不声称已连接 CapCut CPS 后台；没有官方权限的私有数据不抓取。
 - 自动质量检查不能替代人工审片。

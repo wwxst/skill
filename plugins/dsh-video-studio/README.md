@@ -25,8 +25,9 @@
 - AI 镜头清单、图片生成、素材绑定和模板自动填充
 - 多画幅项目复制、批量渲染和失败任务重试
 - 黑场、静帧、静音、音量、字幕阅读速度和文字可读性检查
+- 多个 TikTok 账号独立 OAuth 授权、令牌轮换和隔离保存
 - TikTok 官方作品列表及播放、点赞、评论、分享数据同步
-- 真实发布数据快照、账号/选题/开头/模板效果统计
+- 真实发布数据快照按具体账号、账号类型、选题、开头和模板统计
 
 模板只复用图片时间线、镜头运动、转场和文字样式，不会修改目标项目的画幅、分辨率或 FPS。保存模板时会记录原画布高度，应用到其他分辨率时按目标画布高度等比例调整文字字号（限制在 20–120）。
 
@@ -82,13 +83,13 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 ## TikTok 数据连接
 
 1. 在 TikTok for Developers 创建应用，申请 Login Kit 和 Display API，并取得 `user.info.basic`、`video.list` 权限。
-2. 将 TikTok OAuth Redirect URI 配置为你的 HTTPS 回调地址，并设置 Client Key、Client Secret 环境变量。
-3. 调用 `video_tiktok_authorize` 生成授权链接，在浏览器登录并同意授权。
-4. TikTok 回调后，将 URL 中的 `code`、`state` 和原始 `redirectUri` 交给 `video_tiktok_connect`。令牌自动保存在本机，refresh token 轮换后也会自动更新。
-5. 调用 `video_tiktok_video_list` 查看授权账号作品，再用 `video_tiktok_sync` 将 videoId 映射到项目。
-6. 主页访问、关注、下载、注册和 CPS 转化由业务后台提供时，通过 `video_performance_record` 补录。
+2. 将 TikTok OAuth Redirect URI 配置为 HTTPS 回调地址，并设置 Client Key、Client Secret 环境变量。
+3. 给每个账号指定唯一的 `accountId`，例如 `capcut-project-01`、`mid-video-01`。分别调用 `video_tiktok_authorize` 生成授权链接，浏览器登录对应账号并同意授权。
+4. TikTok 回调后，将 URL 中的 `code`、`state`、原始 `redirectUri` 和相同的 `accountId` 交给 `video_tiktok_connect`。state 10 分钟过期，回调地址必须与授权时一致。
+5. 调用 `video_tiktok_video_list` 时指定 `accountId`；同步时在每条 `video_tiktok_sync` mapping 中指定作品所属账号。不同账号的令牌和作品数据彼此隔离。
+6. 主页访问、关注、下载、注册和 CPS 转化由业务后台提供时，通过 `video_performance_record` 补录，并填写相同的 `accountId`。
 
-成功刷新后会保存 TikTok 轮换的新 refresh token。令牌文件只保存在本机数据目录，不会由工具返回。权限和字段以 [TikTok Display API 文档](https://developers.tiktok.com/docs/en/display-api-overview) 为准。
+令牌按账号保存在本机数据目录的 `integrations/tiktok-token.json`，refresh token 轮换后自动更新；工具不会返回令牌。可通过 `video_studio_status` 查看已连接账号的标识和授权 scope。权限和字段以 [TikTok Display API 文档](https://developers.tiktok.com/docs/en/display-api-overview) 为准。
 
 ## 常用工具
 
@@ -110,6 +111,13 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 | `video_job_cancel` | 取消渲染任务 |
 | `video_output_list` | 列出成片 |
 | `video_workbench_open` | 返回工作台地址 |
+| `video_media_search` / `video_media_download` | 搜索并下载 Pixabay 素材 |
+| `video_library_add` / `video_library_list` / `video_library_tag` / `video_library_import` | 管理中央素材库 |
+| `video_storyboard_create` / `video_storyboard_get` / `video_storyboard_apply` | 创建、读取并应用 AI 镜头清单 |
+| `video_image_generate` | 生成图片并导入素材库（需确认费用） |
+| `video_project_duplicate` / `video_batch_render` | 复制多画幅版本并批量渲染 |
+| `video_job_retry` / `video_quality_check` | 重试失败任务并检查成片 |
+| `video_performance_record` / `video_performance_summary` | 记录真实发布数据并按账号/内容维度分析 |
 | `video_tiktok_authorize` | 生成 TikTok OAuth 授权链接 |
 | `video_tiktok_connect` | 兑换授权码并保存本机令牌 |
 | `video_tiktok_video_list` | 读取授权账号作品及基础互动数据 |

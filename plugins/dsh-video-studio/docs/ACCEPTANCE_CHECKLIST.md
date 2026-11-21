@@ -35,7 +35,7 @@ $env:DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET = "你的 TikTok Client Secret"
 
 配置后从这个 PowerShell 窗口启动 Harness，或将变量保存为用户环境变量后重新登录。不要把密钥粘贴到普通对话、项目文档或 Git 仓库。
 
-TikTok 还需要在开发者后台登记 OAuth Redirect URI，并获批 Login Kit、Display API 和 `video.list` 权限。授权时运行 `video_tiktok_authorize`，浏览器完成授权后把回调 URL 中的 `code`、`state` 和完全相同的 `redirectUri` 交给 `video_tiktok_connect`。
+TikTok 还需要在开发者后台登记 OAuth Redirect URI，并获批 Login Kit、Display API 和 `video.list` 权限。每个账号分配唯一 accountId（例如 `capcut-project-01`、`mid-video-01`），分别运行 `video_tiktok_authorize`、浏览器授权、再用相同 accountId 和 redirectUri 调用 `video_tiktok_connect`。state 10 分钟过期。
 
 ## 3. 一次性端到端验收
 
@@ -49,7 +49,7 @@ TikTok 还需要在开发者后台登记 OAuth Redirect URI，并获批 Login Ki
 6. **单项目渲染**：提交 MP4 渲染，轮询任务到终态；确认文件能播放、时长/画幅/音轨正确。
 7. **质量检查**：运行 `video_quality_check`，检查黑场、静帧、静音、响度、字幕阅读速度和文字可读性结果。自动检查是提示，不替代人工审片。
 8. **多版本和批量**：复制 9:16、1:1 或 16:9 版本，提交批量渲染；确认单项结果分别记录，失败项可单独重试。
-9. **TikTok 数据**：完成 OAuth 后读取授权账号作品；将一条已发布作品的 videoId 映射到对应项目，运行 `video_tiktok_sync`；确认播放、点赞、评论、分享指标和来源标记正确。
+9. **TikTok 数据**：至少授权一个账号；如有项目号和中视频号，分别用不同 accountId 授权。读取各账号作品，并在 `video_tiktok_sync` 的 mapping 中填写对应 accountId；确认作品没有串号，指标和来源标记正确。
 10. **业务转化补录**：通过 `video_performance_record` 补录业务后台的主页访问、关注、下载、注册或 CPS 转化数据；运行 `video_performance_summary`，确认项目号与中视频号分开统计，缺失指标显示为空而不是 0。
 
 ## 4. 验收边界
@@ -74,7 +74,7 @@ TikTok 还需要在开发者后台登记 OAuth Redirect URI，并获批 Login Ki
 | Storyboard 到时间线 | 待验收 | |
 | MP4 渲染与质量检查 | 待验收 | |
 | 多版本批量渲染 | 待验收 | |
-| TikTok OAuth 与数据同步 | 待验收 | |
+| TikTok 单账号/多账号 OAuth 与数据同步 | 待验收 | |
 | CPS 转化数据补录与统计 | 待验收 | |
 
 验收完成后再决定是否将 PR 从 Draft 转为 Ready，并由用户明确批准后再合并 main。

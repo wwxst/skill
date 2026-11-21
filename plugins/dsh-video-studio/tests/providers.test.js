@@ -269,6 +269,10 @@ test('keeps multiple named TikTok accounts and OAuth states isolated', async (t)
     provider.exchangeAuthorizationCode({ code: 'project-code', state: projectAuth.state, redirectUri: projectAuth.redirectUri, accountId: 'mid-video-01' }),
     (error) => error.code === 'TIKTOK_OAUTH_STATE_MISMATCH',
   );
+  await assert.rejects(
+    provider.exchangeAuthorizationCode({ code: 'project-code', state: projectAuth.state, redirectUri: 'https://other.example/callback', accountId: 'capcut-project-01' }),
+    (error) => error.code === 'TIKTOK_OAUTH_REDIRECT_MISMATCH',
+  );
   await provider.exchangeAuthorizationCode({ code: 'project-code', state: projectAuth.state, redirectUri: projectAuth.redirectUri, accountId: 'capcut-project-01' });
   await provider.exchangeAuthorizationCode({ code: 'mid-video-code', state: midVideoAuth.state, redirectUri: midVideoAuth.redirectUri, accountId: 'mid-video-01' });
 

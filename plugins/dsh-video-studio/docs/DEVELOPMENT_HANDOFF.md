@@ -4,7 +4,7 @@
 > 仓库：`wwxst/skill`
 > 分支：`feat/auto-video-production`
 > 当前开发版本：`0.5.0`
-> 交接时远程 HEAD：`8e474acf9640de86b104b06296a998ca69b55949`
+> 交接时远程 HEAD：`543c1ed80001e85d45dcf3a48bb36599cd8f977a`
 > PR：[Draft #1](https://github.com/wwxst/skill/pull/1)
 > 新对话必须重新核对远程 HEAD、main 差异和最新 CI。
 
@@ -43,9 +43,10 @@ Video Studio 是给 DeepSeek Harness 使用的本地视频制作插件。Harness
 ### 0.5 质量与批量生产
 - 黑场、静帧、静音、音量、字幕速度和文字可读性辅助检查
 - 多项目批量渲染、单项失败隔离、失败重试
-- TikTok OAuth 授权链接、state 校验、授权码兑换和 refresh token 自动轮换
+- TikTok 多账号 OAuth 授权；按 accountId 隔离 state、令牌和作品读取
+- OAuth state 10 分钟过期，校验原始 redirectUri；refresh token 自动轮换
 - TikTok Display API 作品列表及播放、点赞、评论、分享指标同步
-- 真实指标快照按项目、账号类型、选题、开头和模板汇总
+- 真实指标快照按具体账号、账号类型、项目、选题、开头和模板汇总
 - 缺失的主页访问、关注、CPS 下载/注册转化保留为未提供，不伪装成 0；由业务后台补录
 
 ## 第三方授权与实机验收前准备
@@ -58,10 +59,11 @@ Video Studio 是给 DeepSeek Harness 使用的本地视频制作插件。Harness
 2. 图片生成：`DSH_VIDEO_STUDIO_IMAGE_API_KEY`；可选 Base URL / Model。图片生成会产生费用，每次调用前必须确认。
 3. TikTok：在 TikTok for Developers 创建应用并获批 Login Kit、Display API 和 `user.info.basic`、`video.list`。设置 Client Key、Client Secret 和登记的 OAuth Redirect URI；运行 `video_tiktok_authorize` → 浏览器授权 → 将回调 `code/state` 交给 `video_tiktok_connect`。令牌保存在本机数据目录并自动轮换。
 4. TikTok Display API 不提供主页访问、关注、下载/注册或 CPS 转化，须从业务后台补录。
+5. 每个 TikTok 账号需要单独授权并分配唯一 accountId；同一个插件数据目录可保存多个账号令牌。
 
 ## 自动化验证
 
-当前最近一次已确认成功的 CI 需要以 GitHub Actions 最新 HEAD 结果为准。测试覆盖真实 FFmpeg MP4、模板、镜头运动/文字像素、素材库去重、Pixabay、安全下载、图片生成响应校验、TikTok OAuth/分页/令牌轮换、TikTok 指标端到端同步、批量渲染和质量检查。
+当前已验证提交 `af3f72d2351dde2789d4f8ef4b0ab8459c5ba5e6` 的 Windows 和 Ubuntu CI 均通过，29 项测试全部通过。当前 HEAD 在此基础上增加了 TikTok 多账号授权与同步，必须以该 HEAD 的最新 CI 结果为准。测试覆盖真实 FFmpeg MP4、模板、镜头运动/文字像素、素材库去重、Pixabay 流式大小限制和媒体签名检查、图片生成响应校验、TikTok OAuth/分页/令牌轮换/多账号隔离、指标端到端同步、批量渲染和质量检查。
 
 CI 通过不代表已完成用户 Windows + DeepSeek Harness 安装验收。最终需要在用户电脑上验证真实 FFmpeg 构建、Harness 安装、Pixabay Key、图片 API Key、TikTok OAuth 和真实素材生产。
 

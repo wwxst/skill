@@ -424,7 +424,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_performance_record',
-      '录入 TikTok 已发布作品的真实数据，沉淀账号类型、选题、开头类型、CTA、模板和播放互动转化指标。只能录入实际数据，不要用估算值冒充真实成绩。',
+      '录入 TikTok 已发布作品的真实数据，沉淀具体账号 accountId、账号类型、选题、开头类型、CTA、模板和播放互动转化指标。只能录入实际数据，不要用估算值冒充真实成绩。',
       {
         projectId: string('对应的视频项目 ID'),
         accountId: string('具体账号标识，例如 capcut-project-01，可选，默认 default'),
@@ -449,7 +449,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_performance_summary',
-      '根据已录入的真实发布数据，按账号目标、选题、开头类型、模板或账号类型汇总播放、互动、关注和转化率。返回样本量，不能把小样本比例当成稳定规律。',
+      '根据已录入的真实发布数据，按具体账号 accountId、账号类型、选题、开头类型、模板或运营目标汇总播放、互动、关注和转化率。返回样本量，不能把小样本比例当成稳定规律。',
       {
         groupBy: enumString('分组维度', ['objective', 'accountId', 'accountType', 'topic', 'hookType', 'templateId']),
         accountId: string('具体账号标识筛选，可选'),
@@ -462,7 +462,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_tiktok_authorize',
-      '生成 TikTok 官方 OAuth 授权链接。先在 TikTok 开发者后台登记 redirectUri 并配置 Client Key/Secret，再让用户打开链接授权。工具会保存一次性 state 防止回调伪造。',
+      '生成指定 accountId 的 TikTok 官方 OAuth 授权链接。先在 TikTok 开发者后台登记 redirectUri 并配置 Client Key/Secret，再让用户打开链接授权。每个账号的 state 独立且 10 分钟过期。',
       { redirectUri: string('TikTok 开发者后台已登记的 HTTPS 或 localhost 回调地址'), accountId: string('账号标识，例如 capcut-project-01；不同 TikTok 账号使用不同标识') }, ['redirectUri'],
       (args) => engine.tiktokAuthorize(args),
     ),

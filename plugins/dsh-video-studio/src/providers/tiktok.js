@@ -26,6 +26,7 @@ function emptyAccount() {
     scope: null,
     pendingState: null,
     pendingStateExpiresAt: 0,
+    pendingRedirectUri: null,
   };
 }
 
@@ -144,6 +145,7 @@ export class TikTokProvider {
     const account = this.getAccount(key);
     account.pendingState = randomBytes(24).toString('hex');
     account.pendingStateExpiresAt = Date.now() + 10 * 60 * 1000;
+    account.pendingRedirectUri = redirect.toString();
     await this.saveTokens(null, key);
     const url = new URL('https://www.tiktok.com/v2/auth/authorize/');
     url.searchParams.set('client_key', this.clientKey);
@@ -166,6 +168,9 @@ export class TikTokProvider {
     try { redirect = new URL(redirectUri); } catch { throw new VideoStudioError('redirectUri 无效。', 'INVALID_ARGUMENT'); }
     const local = ['localhost', '127.0.0.1', '[::1]'].includes(redirect.hostname);
     if (redirect.protocol !== 'https:' && !(local && redirect.protocol === 'http:')) throw new VideoStudioError('TikTok OAuth redirectUri 必须使用 HTTPS（本机 localhost 调试除外）。', 'INVALID_ARGUMENT');
+    if (account.pendingRedirectUri && redirect.toString() !== account.pendingRedirectUri) {
+      throw new VideoStudioError('TikTok OAuth redirectUri 必须与生成授权链接时完全一致。', 'TIKTOK_OAUTH_REDIRECT_MISMATCH');
+    }
     const body = new URLSearchParams({ client_key: this.clientKey, client_secret: this.clientSecret, code: code.trim(), grant_type: 'authorization_code', redirect_uri: redirect.toString() });
     let response;
     try {
@@ -184,6 +189,7 @@ export class TikTokProvider {
     account.refreshExpiresAt = Date.now() + Math.max(0, Number(payload.refresh_expires_in) || 0) * 1000;
     account.pendingState = null;
     account.pendingStateExpiresAt = 0;
+    account.pendingRedirectUri = null;
     await this.saveTokens(payload, key);
     return { connected: true, accountId: key, openId: payload.open_id || null, scopes: grantedScopes, accessTokenExpiresIn: Number(payload.expires_in) || null, refreshTokenExpiresIn: Number(payload.refresh_expires_in) || null, message: 'TikTok 账号授权成功，令牌已保存在本机数据目录。' };
   }
