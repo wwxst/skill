@@ -11,7 +11,7 @@ test('parses black, freeze, silence and audio volume signals from FFmpeg logs', 
     '[silencedetect] silence_duration:1.700000',
     '[volumedetect] mean_volume: -22.0 dB',
     '[volumedetect] max_volume: -0.8 dB',
-  ].join('\\n');
+  ].join('\n');
   const result = parseFfmpegQualityLog(log);
   assert.equal(result.blackSegments[0].duration, 0.5);
   assert.equal(result.freezeSegments[0].duration, 2.5);
@@ -21,7 +21,7 @@ test('parses black, freeze, silence and audio volume signals from FFmpeg logs', 
 });
 
 test('parses SRT cues for subtitle readability analysis', () => {
-  const cues = parseSubtitleCues('1\\n00:00:00,000 --> 00:00:02,000\\nA short subtitle\\n\\n2\\n00:00:02,000 --> 00:00:04,000\\nSecond line\\n');
+  const cues = parseSubtitleCues('1\n00:00:00,000 --> 00:00:02,000\nA short subtitle\n\n2\n00:00:02,000 --> 00:00:04,000\nSecond line\n');
   assert.equal(cues.length, 2);
   assert.equal(cues[0].duration, 2);
   assert.equal(cues[0].charCount, 16);

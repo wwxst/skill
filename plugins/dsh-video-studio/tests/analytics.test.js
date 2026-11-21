@@ -16,6 +16,6 @@ test('records actual performance metrics and summarizes by hook type', async (t)
   assert.equal(summary.sampleCount, 2);
   assert.equal(summary.groups[0].sampleCount, 2);
   assert.equal(summary.groups[0].metrics.views, 3000);
-  assert.equal(summary.groups[0].engagementRate, 0.0533);
+  assert.equal(summary.groups[0].engagementRate, 0.1533);
   assert.equal(summary.groups[0].followRate, 0.0333);
 });

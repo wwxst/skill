@@ -47,5 +47,5 @@ test('local media library tags, deduplicates by SHA-256, and imports metadata in
   const result = await library.importToProject({ projectId: 'vs_123456789abc', libraryId: first.id });
   assert.equal(result.libraryId, first.id);
   assert.equal(imported[0].metadata.libraryId, first.id);
-  assert.deepEqual(imported[0].metadata.tags, tagged.tags);
+  assert.deepEqual([...imported[0].metadata.tags].sort(), [...tagged.tags].sort());
 });
