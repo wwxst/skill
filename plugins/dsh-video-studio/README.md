@@ -88,7 +88,7 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 5. 调用 `video_tiktok_video_list` 查看授权账号作品，再用 `video_tiktok_sync` 将 videoId 映射到项目。
 5. 主页访问、关注、下载、注册和 CPS 转化由业务后台提供时，通过 `video_performance_record` 补录。
 
-成功刷新后会保存 TikTok 轮换的新 refresh token。令牌文件只保存在本机数据目录，不会由工具返回。权限和字段以 [TikTok Display API 文档](https://developers.tiktok.com/docs/en/tiktok-api-overview) 为准。
+成功刷新后会保存 TikTok 轮换的新 refresh token。令牌文件只保存在本机数据目录，不会由工具返回。权限和字段以 [TikTok Display API 文档](https://developers.tiktok.com/docs/en/display-api-overview) 为准。
 
 ## 常用工具
 

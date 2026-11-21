@@ -100,6 +100,10 @@ export class TikTokProvider {
     let payload;
     try { payload = JSON.parse(await response.text()); } catch { throw new VideoStudioError('TikTok OAuth 返回无效 JSON。', 'TIKTOK_INVALID_RESPONSE'); }
     if (!response.ok || payload.error || !payload.access_token || !payload.refresh_token) throw new VideoStudioError('TikTok OAuth 授权失败：' + (payload.error_description || payload.message || response.status), 'TIKTOK_OAUTH_FAILED');
+    const grantedScopes = String(payload.scope || '').split(/[ ,]+/).filter(Boolean);
+    if (grantedScopes.length && !grantedScopes.includes('video.list')) {
+      throw new VideoStudioError('TikTok 账号授权缺少 video.list 权限，请重新授权并勾选所需权限。', 'TIKTOK_SCOPE_MISSING');
+    }
     this.accessToken = payload.access_token;
     this.refreshToken = payload.refresh_token;
     this.accessExpiresAt = Date.now() + Math.max(0, Number(payload.expires_in) || 0) * 1000;
