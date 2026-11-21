@@ -4,7 +4,7 @@
 > 仓库：`wwxst/skill`
 > 分支：`feat/auto-video-production`
 > 当前开发版本：`0.5.0`
-> 最后一次通过 Windows / Ubuntu CI 的代码 HEAD：`a702c11c6a333f1f1c3f5d9c300d679ede3b0fa7`
+> 最后一次通过 Windows / Ubuntu CI 的代码 HEAD：`54911c4fb8a98fe3479a4f27824c985888232be5`
 > PR：[Draft #1](https://github.com/wwxst/skill/pull/1)
 > 当前分支可能包含该代码 HEAD 之后的文档提交；新对话必须重新核对远程 HEAD、main 差异和最新 CI。
 
@@ -64,7 +64,7 @@ Video Studio 是给 DeepSeek Harness 使用的本地视频制作插件。Harness
 
 ## 自动化验证
 
-当前 HEAD `a702c11c6a333f1f1c3f5d9c300d679ede3b0fa7` 的 GitHub Actions push 和 pull_request 两条流水线均通过。Windows 33/33、Ubuntu 33/33，0 失败。测试覆盖真实 FFmpeg MP4、模板、镜头运动/文字像素、素材库去重、Pixabay 流式大小限制和媒体签名检查、图片生成响应校验、TikTok OAuth/分页/令牌轮换/多账号隔离/并发令牌持久化、指标端到端同步、批量渲染和质量检查。
+当前代码 HEAD `54911c4fb8a98fe3479a4f27824c985888232be5` 的 GitHub Actions push 和 pull_request 两条流水线均通过。Windows 34/34、Ubuntu 34/34，0 失败。测试覆盖真实 FFmpeg MP4、模板、镜头运动/文字像素、素材库去重、Pixabay 流式大小限制、媒体签名检查和 API Key 错误信息脱敏、图片生成响应校验、TikTok OAuth/分页/令牌轮换/多账号隔离/并发令牌持久化、指标端到端同步、批量渲染和质量检查。
 
 CI 通过不代表已完成用户 Windows + DeepSeek Harness 安装验收。最终需要在用户电脑上验证真实 FFmpeg 构建、Harness 安装、Pixabay Key、图片 API Key、TikTok OAuth 和真实素材生产。
 
