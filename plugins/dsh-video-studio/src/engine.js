@@ -463,9 +463,43 @@ export async function createEngine(config = {}) {
     return { projectId, revision: project.revision, storyboard: project.storyboard };
   }
 
-  async function storyboardApply({ projectId, expectedRevision, assetIds, fit = 'crop' }) {
+  async function storyboardApply({ projectId, expectedRevision, assetIds, fit = 'crop', templateId, title, durationPerImage }) {
     const project = await store.getRawProject(projectId);
     if (expectedRevision !== project.revision) throw new VideoStudioError('项目版本已变化，请重新读取项目后再应用镜头清单。', 'REVISION_CONFLICT');
+    if (templateId) {
+      const storyboard = project.storyboard;
+      if (!storyboard?.shots?.length) throw new VideoStudioError('项目还没有镜头清单。', 'STORYBOARD_NOT_FOUND');
+      const selectedAssets = assetIds || storyboard.shots.map((shot) => shot.assetId);
+      const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
+      if (!Array.isArray(selectedAssets) || selectedAssets.some((assetId) => assets.get(assetId)?.role !== 'image')) {
+        throw new VideoStudioError('模板模式下，每个镜头都必须绑定当前项目中已导入的图片素材。', 'INVALID_STORYBOARD_ASSETS');
+      }
+      let compiled;
+      let template;
+      try {
+        template = await getTemplate(store.dataDir, templateId);
+        compiled = compileTemplate(template, {
+          assetIds: selectedAssets,
+          title: title || storyboard.topic,
+          durationPerImage,
+          targetOutput: project.output,
+        });
+      } catch (error) {
+        throw new VideoStudioError(error.message, 'INVALID_TEMPLATE');
+      }
+      const result = await store.updateTimeline({
+        projectId,
+        expectedRevision,
+        ...compiled,
+        musicAssetId: project.timeline.musicAssetId ?? null,
+        voiceoverAssetId: project.timeline.voiceoverAssetId ?? null,
+        originalAudioVolume: project.timeline.originalAudioVolume ?? 1,
+        musicVolume: project.timeline.musicVolume ?? 0.18,
+        voiceoverVolume: project.timeline.voiceoverVolume ?? 1,
+        fit,
+      });
+      return { ...result, templateId, templateName: template.name };
+    }
     const compiled = compileStoryboard(project.storyboard, project, { assetIds, fit });
     return store.updateTimeline({ projectId, expectedRevision, ...compiled });
   }

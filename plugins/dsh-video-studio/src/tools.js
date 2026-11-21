@@ -335,12 +335,15 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_storyboard_apply',
-      '把镜头清单和已导入素材组合成时间线。assetIds 按镜头顺序传入；如果镜头已绑定 assetId，可以省略 assetIds。必须使用最新 revision。',
+      '把镜头清单和已导入素材组合成时间线。assetIds 按镜头顺序传入；如果镜头已绑定 assetId，可以省略 assetIds。可选 templateId 将镜头图片自动填入模板槽位。必须使用最新 revision。',
       {
         projectId: string('项目 ID'),
         expectedRevision: number('当前项目 revision'),
         assetIds: { type: 'array', minItems: 1, maxItems: 50, items: string('每个镜头对应的项目素材 ID') },
         fit: enumString('画面适配', ['crop', 'contain']),
+        templateId: string('可选模板 ID；模板槽位数量必须与图片镜头数量一致'),
+        title: string('模板标题，可选；默认使用选题'),
+        durationPerImage: number('内置模板每张图片时长 2–15 秒'),
       }, ['projectId', 'expectedRevision'],
       (args) => engine.storyboardApply(args),
     ),
