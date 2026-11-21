@@ -169,8 +169,11 @@ export async function createEngine(config = {}) {
     if (closed) throw new VideoStudioError('Video Studio 正在关闭，暂时不能提交任务。', 'PLUGIN_CLOSING');
     if (!Array.isArray(items) || items.length < 1 || items.length > 20) throw new VideoStudioError('批量渲染必须提供 1–20 个项目。', 'INVALID_ARGUMENT');
     const normalizedItems = [];
+    const seenProjects = new Set();
     for (const item of items) {
       if (!item || typeof item.projectId !== 'string') throw new VideoStudioError('批量渲染的每一项都必须提供 projectId。', 'INVALID_ARGUMENT');
+      if (seenProjects.has(item.projectId)) throw new VideoStudioError('同一项目在一个批量任务中只能出现一次，请先复制成多个版本项目。', 'INVALID_ARGUMENT');
+      seenProjects.add(item.projectId);
       const project = await store.getRawProject(item.projectId);
       if (!project.timeline.clips?.length) throw new VideoStudioError('项目时间线为空，不能批量渲染：' + item.projectId, 'EMPTY_TIMELINE');
       normalizedItems.push({ projectId: item.projectId, outputName: item.outputName || null });
@@ -422,10 +425,14 @@ export async function createEngine(config = {}) {
 
   async function imageGenerate({ projectId, prompt, confirmCost, shotIndex, size, quality, outputFormat, tags, name } = {}) {
     if (confirmCost !== true) throw new VideoStudioError('图片生成可能产生 API 费用。请先取得用户明确确认，并设置 confirmCost=true。', 'IMAGE_GENERATION_CONFIRMATION_REQUIRED');
+    if (shotIndex !== undefined && shotIndex !== null) {
+      if (!Number.isInteger(shotIndex) || shotIndex < 1 || shotIndex > 50) throw new VideoStudioError('shotIndex 必须是 1–50 的镜头序号。', 'INVALID_ARGUMENT');
+      const project = await store.getRawProject(projectId);
+      if (!project.storyboard?.shots?.[shotIndex - 1]) throw new VideoStudioError('项目中不存在第 ' + shotIndex + ' 个镜头。', 'STORYBOARD_NOT_FOUND');
+    }
     const item = await library.generateImage({ prompt, size, quality, outputFormat, tags, name });
     const imported = await library.importToProject({ projectId, libraryId: item.id, label: name || item.name });
     if (shotIndex !== undefined && shotIndex !== null) {
-      if (!Number.isInteger(shotIndex) || shotIndex < 1 || shotIndex > 50) throw new VideoStudioError('shotIndex 必须是 1–50 的镜头序号。', 'INVALID_ARGUMENT');
       const updated = await store.withProjectLock(projectId, async () => {
         const project = await store.getRawProject(projectId);
         if (!project.storyboard?.shots?.[shotIndex - 1]) throw new VideoStudioError('项目中不存在第 ' + shotIndex + ' 个镜头。', 'STORYBOARD_NOT_FOUND');

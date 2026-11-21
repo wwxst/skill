@@ -97,6 +97,7 @@ export function createMediaLibrary({ dataDir, resolveAllowedFile, store, ffprobe
       let existing = index.items.find((item) => item.sha256 === digest);
       if (existing) {
         existing.tags = [...new Set([...(existing.tags || []), ...cleanTags])].slice(0, 20);
+        existing.sources ||= [];
         if (sourceRecord && !existing.sources.some((item) => item.provider === sourceRecord.provider && item.sourceUrl === sourceRecord.sourceUrl && item.prompt === sourceRecord.prompt)) {
           existing.sources.push(sourceRecord);
         }
@@ -131,12 +132,16 @@ export function createMediaLibrary({ dataDir, resolveAllowedFile, store, ffprobe
   async function addFile({ filePath, role, name, tags = [] }) {
     const resolved = await resolveAllowedFile(filePath);
     const ext = path.extname(resolved.path).toLowerCase();
+    if (!['image', 'video', 'audio'].includes(role)) throw new VideoStudioError('素材类型无效。', 'INVALID_ARGUMENT');
     const digest = await hashFile(resolved.path);
     const existing = (await readIndex()).items.find((item) => item.sha256 === digest);
     if (existing) {
+      if (existing.role !== role) throw new VideoStudioError('相同文件已存在于素材库，但素材类型不一致。', 'LIBRARY_ROLE_CONFLICT');
       return updateIndex(async (index) => {
         const item = index.items.find((entry) => entry.id === existing.id);
         item.tags = [...new Set([...(item.tags || []), ...normalizeTags(tags)])].slice(0, 20);
+        item.sources ||= [];
+        if (!item.sources.some((source) => source.provider === 'local')) item.sources.push({ provider: 'local', downloadedAt: new Date().toISOString() });
         item.updatedAt = new Date().toISOString();
         return publicItem(item);
       });

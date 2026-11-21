@@ -39,8 +39,8 @@ export function parseFfmpegQualityLog(log) {
     return result;
   };
   const black = collect(/black_start:([0-9.]+)\s+black_end:([0-9.]+)\s+black_duration:([0-9.]+)/g, ['start', 'end', 'duration']);
-  const freezes = collect(/freeze_start:([0-9.]+).*?freeze_duration:([0-9.]+)/g, ['start', 'duration']);
-  const silences = collect(/silence_start:([0-9.]+).*?silence_duration:([0-9.]+)/g, ['start', 'duration']);
+  const freezes = collect(/freeze_start:([0-9.]+)[\\s\\S]*?freeze_duration:([0-9.]+)/g, ['start', 'duration']);
+  const silences = collect(/silence_start:([0-9.]+)[\\s\\S]*?silence_duration:([0-9.]+)/g, ['start', 'duration']);
   const mean = /mean_volume:\s*(-?[0-9.]+)\s*dB/i.exec(text);
   const peak = /max_volume:\s*(-?[0-9.]+)\s*dB/i.exec(text);
   return {
