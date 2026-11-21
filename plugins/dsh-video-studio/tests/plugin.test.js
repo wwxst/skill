@@ -29,7 +29,7 @@ test('mounts as a current DeepSeek Harness host bundle and registers video tools
     await apply(ctx, { dataDir: path.join(root, 'data'), allowedRoots: [root], port });
     assert.ok(registered.some((tool) => tool.name === 'video_render'));
     assert.ok(registered.some((tool) => tool.name === 'video_project_create'));
-    assert.equal(registered.length, 13);
+    assert.equal(registered.length, 16);
     const createTool = registered.find((tool) => tool.name === 'video_project_create');
     const created = await createTool.execute({ title: 'Tool registration test' }, { signal: new AbortController().signal });
     assert.match(created.id, /^vs_[a-f0-9]{12}$/);
