@@ -5,6 +5,7 @@ import { checkBinary, probeMedia } from './media.js';
 import { renderProject } from './render.js';
 import { VideoStudioError } from './errors.js';
 import { assertId, id, readJson, writeJsonAtomic } from './util.js';
+import { listTemplates, getTemplate, saveTemplateFromProject, compileTemplate } from './templates/library.js';
 
 export async function createEngine(config = {}) {
   const store = createStore(config);
@@ -148,6 +149,52 @@ export async function createEngine(config = {}) {
     return readJob(jobId);
   }
 
+  async function templateList() {
+    return listTemplates(store.dataDir);
+  }
+
+  async function templateSave({ projectId, expectedRevision, name, description = '' }) {
+    const project = await store.getRawProject(projectId);
+    if (expectedRevision !== project.revision) {
+      throw new VideoStudioError('项目版本已变化，请重新读取项目后再保存模板。', 'REVISION_CONFLICT');
+    }
+    try {
+      return await saveTemplateFromProject(store.dataDir, project, { name, description });
+    } catch (error) {
+      throw new VideoStudioError(error.message, 'INVALID_TEMPLATE');
+    }
+  }
+
+  async function templateApply({ projectId, expectedRevision, templateId, assetIds, title, durationPerImage }) {
+    const project = await store.getRawProject(projectId);
+    if (expectedRevision !== project.revision) {
+      throw new VideoStudioError('项目版本已变化，请重新读取项目后再应用模板。', 'REVISION_CONFLICT');
+    }
+    let template;
+    let compiled;
+    try {
+      template = await getTemplate(store.dataDir, templateId);
+      const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
+      if (!Array.isArray(assetIds) || assetIds.some((assetId) => assets.get(assetId)?.role !== 'image')) {
+        throw new Error('模板需要使用当前项目中已经导入的图片素材。');
+      }
+      compiled = compileTemplate(template, { assetIds, title, durationPerImage });
+    } catch (error) {
+      throw new VideoStudioError(error.message, 'INVALID_TEMPLATE');
+    }
+    const result = await store.updateTimeline({
+      projectId,
+      expectedRevision,
+      ...compiled,
+      musicAssetId: project.timeline.musicAssetId ?? null,
+      voiceoverAssetId: project.timeline.voiceoverAssetId ?? null,
+      originalAudioVolume: project.timeline.originalAudioVolume ?? 1,
+      musicVolume: project.timeline.musicVolume ?? 0.18,
+      voiceoverVolume: project.timeline.voiceoverVolume ?? 1,
+      fit: 'crop',
+    });
+    return { ...result, templateId, templateName: template.name };
+  }
   async function assetProbe({ projectId, assetId }) {
     return store.withProjectLock(projectId, async () => {
       const project = await store.getRawProject(projectId);
@@ -199,6 +246,10 @@ export async function createEngine(config = {}) {
         automaticSpeechRecognition: false,
         textToSpeech: false,
         nativeCapCutDraftExport: false,
+        reusableTemplates: true,
+        imageMotion: true,
+        transitions: true,
+        textOverlays: true,
       },
     };
   }
@@ -216,6 +267,9 @@ export async function createEngine(config = {}) {
     createProject: store.createProject,
     listProjects: store.listProjects,
     getProject: store.getProject,
+    templateList,
+    templateSave,
+    templateApply,
     importAsset: store.importAsset,
     updateTimeline: store.updateTimeline,
     setSubtitles: store.setSubtitles,
