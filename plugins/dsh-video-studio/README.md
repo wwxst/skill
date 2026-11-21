@@ -78,9 +78,10 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 ## TikTok 数据连接
 
 1. 在 TikTok for Developers 创建应用，申请 Login Kit 和 Display API，并取得 `user.info.basic`、`video.list` 权限。
-2. 按 TikTok 官方 OAuth 流程获取用户 access token 和 refresh token；插件不会绕过平台审核或读取未授权账号数据。
-3. 设置上方 Client Key、Client Secret、Access Token 和 Refresh Token 环境变量，然后重启 Harness。
-4. 调用 `video_tiktok_video_list` 查看授权账号作品，再用 `video_tiktok_sync` 将 videoId 映射到项目。
+2. 将 TikTok OAuth Redirect URI 配置为你的 HTTPS 回调地址，并设置 Client Key、Client Secret 环境变量。
+3. 调用 `video_tiktok_authorize` 生成授权链接，在浏览器登录并同意授权。
+4. TikTok 回调后，将 URL 中的 `code`、`state` 和原始 `redirectUri` 交给 `video_tiktok_connect`。令牌自动保存在本机，refresh token 轮换后也会自动更新。
+5. 调用 `video_tiktok_video_list` 查看授权账号作品，再用 `video_tiktok_sync` 将 videoId 映射到项目。
 5. 主页访问、关注、下载、注册和 CPS 转化由业务后台提供时，通过 `video_performance_record` 补录。
 
 成功刷新后会保存 TikTok 轮换的新 refresh token。令牌文件只保存在本机数据目录，不会由工具返回。权限和字段以 [TikTok Display API 文档](https://developers.tiktok.com/docs/en/tiktok-api-overview) 为准。
@@ -105,6 +106,8 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 | `video_job_cancel` | 取消渲染任务 |
 | `video_output_list` | 列出成片 |
 | `video_workbench_open` | 返回工作台地址 |
+| `video_tiktok_authorize` | 生成 TikTok OAuth 授权链接 |
+| `video_tiktok_connect` | 兑换授权码并保存本机令牌 |
 | `video_tiktok_video_list` | 读取授权账号作品及基础互动数据 |
 | `video_tiktok_sync` | 将作品指标快照关联到项目 |
 

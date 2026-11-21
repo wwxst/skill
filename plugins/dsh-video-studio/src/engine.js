@@ -600,6 +600,8 @@ export async function createEngine(config = {}) {
     return performanceStore.summary(args);
   }
 
+  async function tiktokAuthorize(args) { return tiktok.createAuthorizationUrl(args); }
+  async function tiktokConnect(args) { return tiktok.exchangeAuthorizationCode(args); }
   async function tiktokVideoList(args) { return tiktok.listVideos(args); }
 
   async function tiktokSync({ mappings, limit = 100 } = {}) {
@@ -740,6 +742,8 @@ export async function createEngine(config = {}) {
     projectDuplicate,
     performanceRecord,
     performanceSummary,
+    tiktokAuthorize,
+    tiktokConnect,
     tiktokVideoList,
     tiktokSync,
     close,

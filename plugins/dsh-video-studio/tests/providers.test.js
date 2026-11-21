@@ -161,3 +161,34 @@ test('image generation accepts custom portrait sizes suitable for vertical video
   assert.equal(sent.size, '1024x1824');
   await assert.rejects(provider.generate({ prompt: 'bad', size: '1025x1824' }), (error) => error.code === 'INVALID_ARGUMENT');
 });
+
+test('TikTok OAuth authorization validates state and exchanges code for rotating tokens', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-tiktok-oauth-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  let tokenRequest;
+  const provider = new TikTokProvider({
+    dataDir: root, clientKey: 'client-key', clientSecret: 'client-secret',
+    fetchImpl: async (url, options) => {
+      tokenRequest = { url: String(url), body: options.body };
+      return new Response(JSON.stringify({
+        access_token: 'oauth-access', refresh_token: 'oauth-refresh',
+        expires_in: 7200, refresh_expires_in: 15552000, open_id: 'open-id',
+        scope: 'user.info.basic,video.list',
+      }), { status: 200 });
+    },
+  });
+  await provider.initialize();
+  const auth = await provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback' });
+  const authUrl = new URL(auth.authorizationUrl);
+  assert.equal(authUrl.searchParams.get('client_key'), 'client-key');
+  assert.equal(authUrl.searchParams.get('scope'), 'user.info.basic,video.list');
+  await assert.rejects(
+    provider.exchangeAuthorizationCode({ code: 'code', state: 'wrong', redirectUri: auth.redirectUri }),
+    (error) => error.code === 'TIKTOK_OAUTH_STATE_MISMATCH',
+  );
+  const connected = await provider.exchangeAuthorizationCode({ code: 'auth-code', state: auth.state, redirectUri: auth.redirectUri });
+  assert.equal(connected.connected, true);
+  assert.equal(tokenRequest.body.get('grant_type'), 'authorization_code');
+  assert.equal(tokenRequest.body.get('code'), 'auth-code');
+  assert.equal(provider.refreshToken, 'oauth-refresh');
+});
