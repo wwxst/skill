@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { copyFile, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ensureDir, id, readJson, writeJsonAtomic, assertId } from './util.js';
 import { VideoStudioError } from './errors.js';
@@ -133,21 +133,58 @@ export function createMediaLibrary({ dataDir, resolveAllowedFile, store, ffprobe
     const resolved = await resolveAllowedFile(filePath);
     const ext = path.extname(resolved.path).toLowerCase();
     if (!['image', 'video', 'audio'].includes(role)) throw new VideoStudioError('素材类型无效。', 'INVALID_ARGUMENT');
+    const allowed = role === 'image' ? ['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tif', '.tiff']
+      : role === 'video' ? ['.mp4', '.webm', '.mov', '.mkv']
+        : ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'];
+    if (!allowed.includes(ext)) throw new VideoStudioError('素材扩展名与类型不匹配：' + ext, 'UNSUPPORTED_MEDIA');
+    const sourceInfo = await stat(resolved.path);
+    if (!sourceInfo.isFile()) throw new VideoStudioError('只能添加普通文件到素材库。', 'INVALID_ARGUMENT');
     const digest = await hashFile(resolved.path);
-    const existing = (await readIndex()).items.find((item) => item.sha256 === digest);
-    if (existing) {
-      if (existing.role !== role) throw new VideoStudioError('相同文件已存在于素材库，但素材类型不一致。', 'LIBRARY_ROLE_CONFLICT');
-      return updateIndex(async (index) => {
-        const item = index.items.find((entry) => entry.id === existing.id);
-        item.tags = [...new Set([...(item.tags || []), ...normalizeTags(tags)])].slice(0, 20);
-        item.sources ||= [];
-        if (!item.sources.some((source) => source.provider === 'local')) item.sources.push({ provider: 'local', downloadedAt: new Date().toISOString() });
-        item.updatedAt = new Date().toISOString();
+    const cleanTags = normalizeTags(tags);
+    const sourceRecord = { provider: 'local', downloadedAt: new Date().toISOString() };
+
+    return updateIndex(async (index) => {
+      const existing = index.items.find((item) => item.sha256 === digest);
+      if (existing) {
+        if (existing.role !== role) throw new VideoStudioError('相同文件已存在于素材库，但素材类型不一致。', 'LIBRARY_ROLE_CONFLICT');
+        existing.tags = [...new Set([...(existing.tags || []), ...cleanTags])].slice(0, 20);
+        existing.sources ||= [];
+        if (!existing.sources.some((source) => source.provider === 'local')) existing.sources.push(sourceRecord);
+        existing.updatedAt = new Date().toISOString();
+        return publicItem(existing);
+      }
+
+      const fileName = digest + ext;
+      const filePathInLibrary = path.join(assetsDir, fileName);
+      const temporary = filePathInLibrary + '.' + process.pid + '.' + Date.now() + '.tmp';
+      try {
+        await copyFile(resolved.path, temporary);
+        const copiedDigest = await hashFile(temporary);
+        if (copiedDigest !== digest) throw new VideoStudioError('导入期间源文件发生变化，请重新导入。', 'SOURCE_FILE_CHANGED');
+        const copiedInfo = await stat(temporary);
+        await rename(temporary, filePathInLibrary);
+        const item = {
+          id: id('lib'),
+          name: String(name || fileName).trim().slice(0, 160) || fileName,
+          role,
+          extension: ext,
+          fileName,
+          path: filePathInLibrary,
+          size: copiedInfo.size,
+          sha256: digest,
+          tags: cleanTags,
+          sources: [sourceRecord],
+          media,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        index.items.push(item);
         return publicItem(item);
-      });
-    }
-    const buffer = await readFile(resolved.path);
-    return addBuffer({ buffer, extension: ext, role, name: name || path.basename(resolved.path), tags, source: { provider: 'local' }, media });
+      } catch (error) {
+        await rm(temporary, { force: true }).catch(() => {});
+        throw error;
+      }
+    });
   }
 
   async function list({ query = '', tags = [], role, limit = 100, offset = 0 } = {}) {
