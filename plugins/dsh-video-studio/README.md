@@ -2,7 +2,7 @@
 
 一个面向 DeepSeek Harness 的本地视频制作插件。AI 通过 Harness 工具调用管理素材、编排时间线、添加字幕和音轨，并使用本机 FFmpeg 生成 MP4。
 
-> 当前版本：`0.2.0`。目标适配 DeepSeek Harness `0.2.2-rc.5` 及兼容版本。需要 Node.js `24.9+`、FFmpeg `7+`、FFprobe `7+`。
+> 当前版本：`0.5.0`。目标适配 DeepSeek Harness `0.2.2-rc.5` 及兼容版本。需要 Node.js `24.9+`、FFmpeg `7+`、FFprobe `7+`。
 
 ## 能力
 
@@ -20,12 +20,19 @@
 - 后台渲染任务、进度查询、取消和失败记录
 - MP4 成片预览、下载和项目数据持久化
 - 本机可视化工作台，默认地址 `http://127.0.0.1:4174`
+- Pixabay 图片/视频搜索下载、24 小时缓存、来源和授权记录
+- 本地素材库、SHA-256 去重、标签和跨项目导入
+- AI 镜头清单、图片生成、素材绑定和模板自动填充
+- 多画幅项目复制、批量渲染和失败任务重试
+- 黑场、静帧、静音、音量、字幕阅读速度和文字可读性检查
+- TikTok 官方作品列表及播放、点赞、评论、分享数据同步
+- 真实发布数据快照、账号/选题/开头/模板效果统计
 
 模板只复用图片时间线、镜头运动、转场和文字样式，不会修改目标项目的画幅、分辨率或 FPS。保存模板时会记录原画布高度，应用到其他分辨率时按目标画布高度等比例调整文字字号（限制在 20–120）。
 
 ## 不包含的能力
 
-当前版本没有自动语音识别（ASR）、AI 语音合成（TTS）、自动选镜头、专业级多轨转场、节点调色、在线模板市场、网络素材搜索下载或剪映原生草稿导出。字幕需要提供 SRT 文本；配音和音乐需要先导入音频文件。
+当前版本没有自动语音识别（ASR）、AI 语音合成（TTS）、专业级多轨转场、节点调色、在线模板市场或剪映原生草稿导出。字幕需要提供 SRT 文本；配音和音乐需要先导入音频文件。TikTok Display API 不提供主页访问、关注和 CPS 转化数据，这些指标需要通过 video_performance_record 补录。
 
 ## 安装
 
@@ -68,6 +75,16 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 
 默认地址：`http://127.0.0.1:4174`。工作台只能从运行 Harness 的这台电脑访问。
 
+## TikTok 数据连接
+
+1. 在 TikTok for Developers 创建应用，申请 Login Kit 和 Display API，并取得 `user.info.basic`、`video.list` 权限。
+2. 按 TikTok 官方 OAuth 流程获取用户 access token 和 refresh token；插件不会绕过平台审核或读取未授权账号数据。
+3. 设置上方 Client Key、Client Secret、Access Token 和 Refresh Token 环境变量，然后重启 Harness。
+4. 调用 `video_tiktok_video_list` 查看授权账号作品，再用 `video_tiktok_sync` 将 videoId 映射到项目。
+5. 主页访问、关注、下载、注册和 CPS 转化由业务后台提供时，通过 `video_performance_record` 补录。
+
+成功刷新后会保存 TikTok 轮换的新 refresh token。令牌文件只保存在本机数据目录，不会由工具返回。权限和字段以 [TikTok Display API 文档](https://developers.tiktok.com/docs/en/tiktok-api-overview) 为准。
+
 ## 常用工具
 
 | 工具 | 作用 |
@@ -88,6 +105,8 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 | `video_job_cancel` | 取消渲染任务 |
 | `video_output_list` | 列出成片 |
 | `video_workbench_open` | 返回工作台地址 |
+| `video_tiktok_video_list` | 读取授权账号作品及基础互动数据 |
+| `video_tiktok_sync` | 将作品指标快照关联到项目 |
 
 ## 给 AI 的示例需求
 
@@ -119,6 +138,10 @@ AI 需要按下面流程工作：
 | `DSH_VIDEO_STUDIO_FFMPEG` | 自定义 FFmpeg 可执行文件路径 |
 | `DSH_VIDEO_STUDIO_FFPROBE` | 自定义 FFprobe 可执行文件路径 |
 | `DSH_VIDEO_STUDIO_PORT` | 工作台端口，默认 `4174` |
+| `DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY` | TikTok 开发者应用 Client Key |
+| `DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET` | TikTok 开发者应用 Client Secret |
+| `DSH_VIDEO_STUDIO_TIKTOK_ACCESS_TOKEN` | TikTok OAuth 用户 Access Token |
+| `DSH_VIDEO_STUDIO_TIKTOK_REFRESH_TOKEN` | TikTok OAuth Refresh Token；轮换后保存在本地 integrations/tiktok-token.json |
 
 例如 Windows：
 
