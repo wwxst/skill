@@ -57,6 +57,10 @@ export function createPerformanceStore(dataDir) {
     const objective = String(input.objective || (accountType === 'mid-video' ? 'traffic' : 'acquisition')).slice(0, 80);
     const postedAt = input.postedAt ? new Date(input.postedAt) : new Date();
     if (Number.isNaN(postedAt.getTime())) throw new VideoStudioError('postedAt 日期格式无效。', 'INVALID_ARGUMENT');
+    const availableMetrics = Array.isArray(input.availableMetrics)
+      ? [...new Set(input.availableMetrics.filter((name) => METRICS.includes(name)))]
+      : METRICS.filter((name) => input[name] !== undefined && input[name] !== null);
+    if (!availableMetrics.length) throw new VideoStudioError('至少需要提供一项真实发布指标。', 'INVALID_METRIC');
     const metrics = Object.fromEntries(METRICS.map((name) => [name, metric(input[name], name)]));
     const record = {
       id: id('perf'),
@@ -70,7 +74,7 @@ export function createPerformanceStore(dataDir) {
       postUrl: input.postUrl ? String(input.postUrl).slice(0, 1000) : null,
       platformVideoId: input.platformVideoId ? String(input.platformVideoId).slice(0, 80) : null,
       source: input.source ? String(input.source).slice(0, 80) : 'manual',
-      availableMetrics: Array.isArray(input.availableMetrics) ? [...new Set(input.availableMetrics.filter((name) => METRICS.includes(name)))] : METRICS,
+      availableMetrics,
       postedAt: postedAt.toISOString(),
       metrics,
       createdAt: new Date().toISOString(),

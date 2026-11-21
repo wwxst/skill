@@ -693,7 +693,11 @@ export async function createEngine(config = {}) {
       providers: {
         pixabay: { configured: library.pixabayConfigured },
         imageGeneration: { configured: library.imageGenerationConfigured, model: library.imageModel },
-        tiktok: { configured: tiktok.configured, automaticRefresh: Boolean(config.tiktokClientKey || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY) && Boolean(config.tiktokClientSecret || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET) },
+        tiktok: {
+          configured: tiktok.configured,
+          authorizationReady: Boolean(config.tiktokClientKey || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY) && Boolean(config.tiktokClientSecret || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET),
+          automaticRefresh: Boolean(config.tiktokClientKey || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY) && Boolean(config.tiktokClientSecret || process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET),
+        },
       },
       dataDir: store.dataDir,
       allowedRoots: store.allowedRoots,

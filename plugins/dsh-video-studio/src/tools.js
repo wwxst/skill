@@ -443,7 +443,7 @@ export function createToolDefinitions(engine) {
         profileVisits: number('实际主页访问数，非负整数'),
         follows: number('实际新增关注数，非负整数'),
         conversions: number('实际下载、注册或其他转化数，非负整数'),
-      }, ['projectId'],
+      }, ['projectId', 'views'],
       (args) => engine.performanceRecord(args),
     ),
     definition(
