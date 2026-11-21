@@ -49,3 +49,20 @@ test('local media library tags, deduplicates by SHA-256, and imports metadata in
   assert.equal(imported[0].metadata.libraryId, first.id);
   assert.deepEqual([...imported[0].metadata.tags].sort(), [...tagged.tags].sort());
 });
+
+
+test('media library rejects identical bytes registered under different media roles', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'video-library-role-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const library = createMediaLibrary({
+    dataDir: root,
+    resolveAllowedFile: async () => ({ path: path.join(root, 'unused') }),
+  });
+  await library.initialize();
+  const bytes = Buffer.from('same-media-bytes');
+  await library.addBuffer({ buffer: bytes, extension: '.png', role: 'image', name: 'Image' });
+  await assert.rejects(
+    library.addBuffer({ buffer: bytes, extension: '.mp4', role: 'video', name: 'Video' }),
+    (error) => error.code === 'LIBRARY_ROLE_CONFLICT',
+  );
+});

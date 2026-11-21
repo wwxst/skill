@@ -86,7 +86,7 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 3. 调用 `video_tiktok_authorize` 生成授权链接，在浏览器登录并同意授权。
 4. TikTok 回调后，将 URL 中的 `code`、`state` 和原始 `redirectUri` 交给 `video_tiktok_connect`。令牌自动保存在本机，refresh token 轮换后也会自动更新。
 5. 调用 `video_tiktok_video_list` 查看授权账号作品，再用 `video_tiktok_sync` 将 videoId 映射到项目。
-5. 主页访问、关注、下载、注册和 CPS 转化由业务后台提供时，通过 `video_performance_record` 补录。
+6. 主页访问、关注、下载、注册和 CPS 转化由业务后台提供时，通过 `video_performance_record` 补录。
 
 成功刷新后会保存 TikTok 轮换的新 refresh token。令牌文件只保存在本机数据目录，不会由工具返回。权限和字段以 [TikTok Display API 文档](https://developers.tiktok.com/docs/en/display-api-overview) 为准。
 
@@ -145,6 +145,10 @@ AI 需要按下面流程工作：
 | `DSH_VIDEO_STUDIO_FFMPEG` | 自定义 FFmpeg 可执行文件路径 |
 | `DSH_VIDEO_STUDIO_FFPROBE` | 自定义 FFprobe 可执行文件路径 |
 | `DSH_VIDEO_STUDIO_PORT` | 工作台端口，默认 `4174` |
+| `DSH_VIDEO_STUDIO_PIXABAY_API_KEY` | Pixabay API Key，用于搜索和下载素材 |
+| `DSH_VIDEO_STUDIO_IMAGE_API_KEY` | 图片生成服务 API Key |
+| `DSH_VIDEO_STUDIO_IMAGE_BASE_URL` | 图片生成 API Base URL，默认 `https://api.openai.com/v1` |
+| `DSH_VIDEO_STUDIO_IMAGE_MODEL` | 图片生成模型名称 |
 | `DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY` | TikTok 开发者应用 Client Key |
 | `DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET` | TikTok 开发者应用 Client Secret |
 | `DSH_VIDEO_STUDIO_TIKTOK_ACCESS_TOKEN` | TikTok OAuth 用户 Access Token |

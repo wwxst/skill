@@ -96,6 +96,7 @@ export function createMediaLibrary({ dataDir, resolveAllowedFile, store, ffprobe
     return updateIndex(async (index) => {
       let existing = index.items.find((item) => item.sha256 === digest);
       if (existing) {
+        if (existing.role !== role) throw new VideoStudioError('相同文件已存在于素材库，但素材类型不一致。', 'LIBRARY_ROLE_CONFLICT');
         existing.tags = [...new Set([...(existing.tags || []), ...cleanTags])].slice(0, 20);
         existing.sources ||= [];
         if (sourceRecord && !existing.sources.some((item) => item.provider === sourceRecord.provider && item.sourceUrl === sourceRecord.sourceUrl && item.prompt === sourceRecord.prompt)) {

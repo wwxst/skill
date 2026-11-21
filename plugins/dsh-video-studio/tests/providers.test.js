@@ -192,3 +192,42 @@ test('TikTok OAuth authorization validates state and exchanges code for rotating
   assert.equal(tokenRequest.body.get('code'), 'auth-code');
   assert.equal(provider.refreshToken, 'oauth-refresh');
 });
+
+
+test('Pixabay download enforces streamed size limits without trusting Content-Length', async () => {
+  const provider = new PixabayProvider({
+    apiKey: 'test-secret',
+    maxDownloadBytes: 16,
+    fetchImpl: async (input) => {
+      const url = new URL(input);
+      if (url.hostname === 'pixabay.com') {
+        return new Response(JSON.stringify({ totalHits: 1, hits: [hit] }), { status: 200 });
+      }
+      if (url.hostname === 'cdn.pixabay.com') {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array(12));
+            controller.enqueue(new Uint8Array(12));
+            controller.close();
+          },
+        });
+        return new Response(body, { status: 200, headers: { 'content-type': 'image/png' } });
+      }
+      throw new Error('Unexpected host');
+    },
+  });
+  await assert.rejects(provider.download({ mediaId: '123', mediaType: 'image' }), (error) => error.code === 'REMOTE_MEDIA_TOO_LARGE');
+});
+
+test('Pixabay download rejects payloads whose bytes do not match the declared image type', async () => {
+  const provider = new PixabayProvider({
+    apiKey: 'test-secret',
+    fetchImpl: async (input) => {
+      const url = new URL(input);
+      if (url.hostname === 'pixabay.com') return new Response(JSON.stringify({ totalHits: 1, hits: [hit] }), { status: 200 });
+      if (url.hostname === 'cdn.pixabay.com') return new Response(Buffer.from('<html>not an image</html>'), { status: 200, headers: { 'content-type': 'image/png' } });
+      throw new Error('Unexpected host');
+    },
+  });
+  await assert.rejects(provider.download({ mediaId: '123', mediaType: 'image' }), (error) => error.code === 'UNSUPPORTED_REMOTE_MEDIA');
+});

@@ -36,9 +36,17 @@ DeepSeek Harness
     tpl_<id>.json
   jobs/
     job_<id>.json
+  library/
+    index.json
+    assets/
+    cache/
+  analytics/
+    performance.json
+  integrations/
+    tiktok-token.json
 ```
 
-`project.json` 保存项目元数据、素材引用、revision、时间线和成片记录。原素材导入时复制到项目 `assets`，源文件不修改。每次修改时间线或字幕都要求携带当前 revision，防止旧数据覆盖新数据。
+`project.json` 保存项目元数据、素材引用、revision、时间线和成片记录。原素材导入时复制到项目 `assets`，源文件不修改。每次修改时间线或字幕都要求携带当前 revision，防止旧数据覆盖新数据。中央素材库按 SHA-256 管理文件和来源授权；`analytics/performance.json` 保存发布数据快照；TikTok OAuth 令牌只保存在本机 `integrations/tiktok-token.json`，访问权限限制为当前用户。
 
 ## 长任务
 

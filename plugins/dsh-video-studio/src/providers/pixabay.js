@@ -78,11 +78,47 @@ function assertPixabayUrl(value) {
   return url;
 }
 
+async function readLimitedBody(response, maxBytes) {
+  if (!response.body) throw new VideoStudioError('Pixabay 下载响应没有文件内容。', 'PIXABAY_EMPTY_DOWNLOAD');
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of response.body) {
+    const buffer = Buffer.from(chunk);
+    total += buffer.length;
+    if (total > maxBytes) throw new VideoStudioError('Pixabay 素材超过下载大小上限。', 'REMOTE_MEDIA_TOO_LARGE');
+    chunks.push(buffer);
+  }
+  if (!total) throw new VideoStudioError('Pixabay 下载素材为空。', 'PIXABAY_EMPTY_DOWNLOAD');
+  return Buffer.concat(chunks, total);
+}
+
+function assertMediaSignature(buffer, mediaType, extension) {
+  const validImage = extension === '.png'
+    ? buffer.length > 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    : extension === '.jpg'
+      ? buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+      : extension === '.webp'
+        ? buffer.length > 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP'
+        : false;
+  const validVideo = extension === '.mp4'
+    ? buffer.length > 12 && buffer.toString('ascii', 4, 8) === 'ftyp'
+    : extension === '.webm'
+      ? buffer.length > 4 && buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+      : false;
+  if (!(mediaType === 'image' ? validImage : validVideo)) {
+    throw new VideoStudioError('Pixabay 下载内容与声明的媒体格式不匹配。', 'UNSUPPORTED_REMOTE_MEDIA');
+  }
+}
+
 export class PixabayProvider {
-  constructor({ apiKey = process.env.DSH_VIDEO_STUDIO_PIXABAY_API_KEY, cacheDir, fetchImpl = globalThis.fetch } = {}) {
+  constructor({ apiKey = process.env.DSH_VIDEO_STUDIO_PIXABAY_API_KEY, cacheDir, fetchImpl = globalThis.fetch, maxDownloadBytes = MAX_DOWNLOAD_BYTES } = {}) {
     this.apiKey = String(apiKey || '').trim();
     this.cacheDir = cacheDir;
     this.fetchImpl = fetchImpl;
+    if (!Number.isInteger(maxDownloadBytes) || maxDownloadBytes < 1 || maxDownloadBytes > MAX_DOWNLOAD_BYTES) {
+      throw new VideoStudioError('Pixabay 下载大小上限配置无效。', 'INVALID_ARGUMENT');
+    }
+    this.maxDownloadBytes = maxDownloadBytes;
   }
 
   get configured() { return Boolean(this.apiKey); }
@@ -183,13 +219,13 @@ export class PixabayProvider {
     }
     if (!response?.ok) throw new VideoStudioError('Pixabay 素材下载失败，HTTP ' + (response?.status || 0), 'PIXABAY_DOWNLOAD_FAILED');
     const declaredSize = Number(response.headers.get('content-length')) || 0;
-    if (declaredSize > MAX_DOWNLOAD_BYTES) throw new VideoStudioError('素材超过 100MB 下载上限。', 'REMOTE_MEDIA_TOO_LARGE');
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (!buffer.length || buffer.length > MAX_DOWNLOAD_BYTES) throw new VideoStudioError('下载素材为空或超过 100MB。', 'REMOTE_MEDIA_TOO_LARGE');
+    if (declaredSize > this.maxDownloadBytes) throw new VideoStudioError('素材超过 ' + Math.round(this.maxDownloadBytes / (1024 * 1024)) + 'MB 下载上限。', 'REMOTE_MEDIA_TOO_LARGE');
     const mimeType = response.headers.get('content-type') || '';
     const extension = extensionFromMime(mimeType, url.toString());
     if (mediaType === 'image' && !['.jpg', '.png', '.webp'].includes(extension)) throw new VideoStudioError('下载内容不是受支持的图片。', 'UNSUPPORTED_REMOTE_MEDIA');
     if (mediaType === 'video' && !['.mp4', '.webm'].includes(extension)) throw new VideoStudioError('下载内容不是受支持的视频。', 'UNSUPPORTED_REMOTE_MEDIA');
+    const buffer = await readLimitedBody(response, this.maxDownloadBytes);
+    assertMediaSignature(buffer, mediaType, extension);
     const normalized = mediaType === 'video' ? videoResult(hit) : imageResult(hit);
     return {
       buffer,
