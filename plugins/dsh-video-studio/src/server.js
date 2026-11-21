@@ -103,12 +103,51 @@ export async function startServer(engine, { port = 4174, host = '127.0.0.1' } = 
       if (method === 'POST' && jobCancelMatch) { await readBody(request); return sendJson(response, 200, await engine.cancelJob(jobCancelMatch[1])); }
       const jobMatch = /^\/api\/jobs\/([^/]+)$/.exec(pathname);
       if (method === 'GET' && jobMatch) return sendJson(response, 200, await engine.getJob(jobMatch[1]));
+      if (method === 'POST' && pathname === '/api/media/search') return sendJson(response, 200, await engine.mediaSearch(await readBody(request)));
+      if (method === 'POST' && pathname === '/api/media/download') return sendJson(response, 201, await engine.mediaDownload(await readBody(request)));
+      if (method === 'GET' && pathname === '/api/library') {
+        const tags = url.searchParams.getAll('tag');
+        return sendJson(response, 200, await engine.libraryList({
+          query: url.searchParams.get('query') || '',
+          role: url.searchParams.get('role') || undefined,
+          tags,
+          limit: Number(url.searchParams.get('limit') || 100),
+          offset: Number(url.searchParams.get('offset') || 0),
+        }));
+      }
+      if (method === 'POST' && pathname === '/api/library') return sendJson(response, 201, await engine.libraryAdd(await readBody(request)));
+      if (method === 'POST' && pathname === '/api/library/tag') return sendJson(response, 200, await engine.libraryTag(await readBody(request)));
+      if (method === 'POST' && pathname === '/api/library/import') return sendJson(response, 201, await engine.libraryImport(await readBody(request)));
+
+      const storyboardMatch = /^\/api\/projects\/([^/]+)\/storyboard$/.exec(pathname);
+      if (method === 'GET' && storyboardMatch) return sendJson(response, 200, await engine.storyboardGet({ projectId: storyboardMatch[1] }));
+      if (method === 'POST' && storyboardMatch) return sendJson(response, 200, await engine.storyboardCreate({ projectId: storyboardMatch[1], ...(await readBody(request)) }));
+      const storyboardApplyMatch = /^\/api\/projects\/([^/]+)\/storyboard\/apply$/.exec(pathname);
+      if (method === 'POST' && storyboardApplyMatch) return sendJson(response, 200, await engine.storyboardApply({ projectId: storyboardApplyMatch[1], ...(await readBody(request)) }));
+      const imageGenerateMatch = /^\/api\/projects\/([^/]+)\/images\/generate$/.exec(pathname);
+      if (method === 'POST' && imageGenerateMatch) return sendJson(response, 201, await engine.imageGenerate({ projectId: imageGenerateMatch[1], ...(await readBody(request)) }));
+      const duplicateMatch = /^\/api\/projects\/([^/]+)\/duplicate$/.exec(pathname);
+      if (method === 'POST' && duplicateMatch) return sendJson(response, 201, await engine.projectDuplicate({ projectId: duplicateMatch[1], ...(await readBody(request)) }));
+      const qualityMatch = /^\/api\/projects\/([^/]+)\/quality$/.exec(pathname);
+      if (method === 'POST' && qualityMatch) return sendJson(response, 200, await engine.qualityCheck({ projectId: qualityMatch[1], ...(await readBody(request)) }));
+      if (method === 'POST' && pathname === '/api/batch/render') return sendJson(response, 202, await engine.submitBatchRender(await readBody(request)));
+      const retryMatch = /^\/api\/jobs\/([^/]+)\/retry$/.exec(pathname);
+      if (method === 'POST' && retryMatch) { await readBody(request); return sendJson(response, 202, await engine.retryJob(retryMatch[1])); }
+      if (method === 'POST' && pathname === '/api/performance') return sendJson(response, 201, await engine.performanceRecord(await readBody(request)));
+      if (method === 'GET' && pathname === '/api/performance/summary') return sendJson(response, 200, await engine.performanceSummary({
+        groupBy: url.searchParams.get('groupBy') || 'objective',
+        accountType: url.searchParams.get('accountType') || undefined,
+        from: url.searchParams.get('from') || undefined,
+        to: url.searchParams.get('to') || undefined,
+        limit: Number(url.searchParams.get('limit') || 50),
+      }));
+
       const outputMatch = /^\/files\/([^/]+)\/([^/]+)$/.exec(pathname);
       if (method === 'GET' && outputMatch) return await serveOutput(request, response, engine, outputMatch[1], outputMatch[2]);
 
       sendJson(response, 404, { error: '没有这个接口。', code: 'NOT_FOUND' });
     } catch (error) {
-      const status = error?.code === 'PROJECT_NOT_FOUND' || error?.code === 'JOB_NOT_FOUND' || error?.code === 'ASSET_NOT_FOUND' ? 404
+      const status = error?.code === 'PROJECT_NOT_FOUND' || error?.code === 'JOB_NOT_FOUND' || error?.code === 'ASSET_NOT_FOUND' || error?.code === 'LIBRARY_ITEM_NOT_FOUND' || error?.code === 'OUTPUT_NOT_FOUND' || error?.code === 'STORYBOARD_NOT_FOUND' ? 404
         : error?.code === 'REVISION_CONFLICT' ? 409
           : error?.code === 'BODY_TOO_LARGE' ? 413
             : error?.code === 'HOST_NOT_ALLOWED' || error?.code === 'ORIGIN_NOT_ALLOWED' ? 403
