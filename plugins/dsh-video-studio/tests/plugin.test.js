@@ -29,7 +29,10 @@ test('mounts as a current DeepSeek Harness host bundle and registers video tools
     await apply(ctx, { dataDir: path.join(root, 'data'), allowedRoots: [root], port });
     assert.ok(registered.some((tool) => tool.name === 'video_render'));
     assert.ok(registered.some((tool) => tool.name === 'video_project_create'));
-    assert.equal(registered.length, 16);
+    assert.equal(registered.length, 32);
+    for (const name of ['video_media_search', 'video_media_download', 'video_library_list', 'video_storyboard_create', 'video_image_generate', 'video_project_duplicate', 'video_batch_render', 'video_job_retry', 'video_quality_check', 'video_performance_record', 'video_performance_summary']) {
+      assert.ok(registered.some((tool) => tool.name === name), 'missing tool: ' + name);
+    }
     const createTool = registered.find((tool) => tool.name === 'video_project_create');
     const created = await createTool.execute({ title: 'Tool registration test' }, { signal: new AbortController().signal });
     assert.match(created.id, /^vs_[a-f0-9]{12}$/);
@@ -38,7 +41,11 @@ test('mounts as a current DeepSeek Harness host bundle and registers video tools
     assert.equal(response.status, 200);
     const status = await response.json();
     assert.equal(status.name, 'Video Studio');
+    assert.equal(status.version, '0.5.0');
     assert.equal(status.ready, true);
+    assert.equal(status.capabilities.localMediaLibrary, true);
+    assert.equal(status.providers.pixabay.configured, false);
+    assert.equal(status.providers.imageGeneration.configured, false);
     const page = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(page.status, 200);
     assert.match(await page.text(), /Video Studio/);
