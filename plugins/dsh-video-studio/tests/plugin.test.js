@@ -29,8 +29,8 @@ test('mounts as a current DeepSeek Harness host bundle and registers video tools
     await apply(ctx, { dataDir: path.join(root, 'data'), allowedRoots: [root], port });
     assert.ok(registered.some((tool) => tool.name === 'video_render'));
     assert.ok(registered.some((tool) => tool.name === 'video_project_create'));
-    assert.equal(registered.length, 32);
-    for (const name of ['video_media_search', 'video_media_download', 'video_library_list', 'video_storyboard_create', 'video_image_generate', 'video_project_duplicate', 'video_batch_render', 'video_job_retry', 'video_quality_check', 'video_performance_record', 'video_performance_summary']) {
+    assert.equal(registered.length, 34);
+    for (const name of ['video_media_search', 'video_media_download', 'video_library_list', 'video_storyboard_create', 'video_image_generate', 'video_project_duplicate', 'video_batch_render', 'video_job_retry', 'video_quality_check', 'video_performance_record', 'video_performance_summary', 'video_tiktok_video_list', 'video_tiktok_sync']) {
       assert.ok(registered.some((tool) => tool.name === name), 'missing tool: ' + name);
     }
     const createTool = registered.find((tool) => tool.name === 'video_project_create');

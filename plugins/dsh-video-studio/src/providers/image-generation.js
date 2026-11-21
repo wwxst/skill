@@ -36,7 +36,7 @@ export function createImageGenerationProvider(config = {}) {
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.trim().length > 4000) throw new VideoStudioError('图片生成提示词不能为空，且不能超过 4000 个字符。', 'INVALID_ARGUMENT');
     const dimensions = String(size);
     if (dimensions !== 'auto') {
-      const match = /^(\\d{3,4})x(\\d{3,4})$/.exec(dimensions);
+      const match = /^(\d{3,4})x(\\d{3,4})$/.exec(dimensions);
       const width = match ? Number(match[1]) : 0;
       const height = match ? Number(match[2]) : 0;
       if (!match || width < 256 || height < 256 || width > 3840 || height > 3840 || width % 16 !== 0 || height % 16 !== 0 || width / height < 1 / 3 || width / height > 3) {
