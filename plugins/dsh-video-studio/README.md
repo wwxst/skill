@@ -2,13 +2,17 @@
 
 一个面向 DeepSeek Harness 的本地视频制作插件。AI 通过 Harness 工具调用管理素材、编排时间线、添加字幕和音轨，并使用本机 FFmpeg 生成 MP4。
 
-> 当前版本：`0.1.0`（MVP）。目标适配 DeepSeek Harness `0.2.2-rc.5` 及兼容版本。需要 Node.js `24.9+`、FFmpeg `7+`、FFprobe `7+`。
+> 当前版本：`0.2.0`。目标适配 DeepSeek Harness `0.2.2-rc.5` 及兼容版本。需要 Node.js `24.9+`、FFmpeg `7+`、FFprobe `7+`。
 
 ## 能力
 
 - 创建和管理本地视频项目，保存项目版本和时间线
 - 导入视频、图片、音频，自动读取时长、分辨率、帧率和音轨信息
 - 按时间线顺序拼接片段，设置源入点/出点和 0.25–4 倍恒定变速
+- 图片片段支持缓慢推近、拉远和上下左右平移
+- 支持淡入、溶解、擦除、滑动、圆形和像素化转场
+- 支持带淡入/淡出效果的动态文字叠加
+- 内置电影感图片转场模板，并可把当前图片时间线保存成跨项目复用模板
 - 支持 9:16、16:9、1:1 和自定义分辨率
 - 画面填充裁切或完整显示留边
 - 保留视频原声，支持背景音乐和旁白混音及音量控制
@@ -19,7 +23,7 @@
 
 ## 不包含的能力
 
-当前版本没有自动语音识别（ASR）、AI 语音合成（TTS）、自动选镜头、复杂转场、专业节点调色、模板市场、网络素材下载或剪映原生草稿导出。字幕需要提供 SRT 文本；配音和音乐需要先导入音频文件。后续可以按真实需求逐步增加。
+当前版本没有自动语音识别（ASR）、AI 语音合成（TTS）、自动选镜头、专业级多轨转场、节点调色、在线模板市场、网络素材搜索下载或剪映原生草稿导出。字幕需要提供 SRT 文本；配音和音乐需要先导入音频文件。
 
 ## 安装
 
@@ -70,6 +74,9 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 | `video_project_create` | 创建项目 |
 | `video_project_list` | 列出项目 |
 | `video_project_get` | 读取项目、素材、时间线和 revision |
+| `video_template_list` | 列出内置和已保存模板 |
+| `video_template_save` | 把当前图片时间线保存为可复用模板 |
+| `video_template_apply` | 将模板应用到当前项目 |
 | `video_asset_import` | 导入视频、图片或音频 |
 | `video_asset_probe` | 重新读取媒体信息 |
 | `video_timeline_update` | 保存剪辑时间线和音轨 |
@@ -93,8 +100,8 @@ AI 需要按下面流程工作：
 
 1. 检查环境。
 2. 创建项目并导入素材。
-3. 读取素材信息，规划片段。
-4. 读取当前 revision 后保存时间线。
+3. 读取素材信息，规划片段；需要复用结构时先调用 `video_template_list`。
+4. 读取当前 revision 后调用 `video_template_apply`，或使用 `video_timeline_update` 自定义动画、转场和文字。
 5. 需要字幕时保存 SRT。
 6. 提交渲染任务并轮询到终态。
 7. 检查输出文件和实际媒体信息。
@@ -137,7 +144,7 @@ $env:DSH_VIDEO_STUDIO_HOME = "D:\VideoStudioData"
 npm test
 ```
 
-测试覆盖项目和素材导入、revision 冲突保护、真实 FFmpeg MP4 渲染、路径限制，以及 Harness Host 插件挂载和工具注册。测试需要本机 FFmpeg/FFprobe。
+测试覆盖项目和素材导入、revision 冲突保护、真实 FFmpeg MP4 渲染、模板应用/保存/复用、图片动画与转场、路径限制，以及 Harness Host 插件挂载和工具注册。测试需要本机 FFmpeg/FFprobe，并要求 FFmpeg 构建包含 libass。
 
 ## 设计来源
 
