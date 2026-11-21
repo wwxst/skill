@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { readdir } from 'node:fs/promises';
 import { createStore } from './store.js';
-import { checkBinary, probeMedia } from './media.js';
+import { checkBinary, checkFfmpegCapabilities, probeMedia } from './media.js';
 import { renderProject } from './render.js';
 import { VideoStudioError } from './errors.js';
 import { assertId, id, readJson, writeJsonAtomic } from './util.js';
@@ -180,7 +180,7 @@ export async function createEngine(config = {}) {
       if (!Array.isArray(assetIds) || assetIds.some((assetId) => assets.get(assetId)?.role !== 'image')) {
         throw new Error('模板需要使用当前项目中已经导入的图片素材。');
       }
-      compiled = compileTemplate(template, { assetIds, title, durationPerImage });
+      compiled = compileTemplate(template, { assetIds, title, durationPerImage, targetOutput: project.output });
     } catch (error) {
       throw new VideoStudioError(error.message, 'INVALID_TEMPLATE');
     }
@@ -225,34 +225,57 @@ export async function createEngine(config = {}) {
   }
 
   async function status() {
-    const [ffmpeg, ffprobe] = await Promise.all([
+    const [ffmpeg, ffprobe, ffmpegCapabilities] = await Promise.all([
       checkBinary(ffmpegPath),
       checkBinary(ffprobePath),
+      checkFfmpegCapabilities(ffmpegPath),
     ]);
+    const filters = ffmpegCapabilities.filters;
+    const encoders = ffmpegCapabilities.encoders;
+    const capabilities = {
+      projectManagement: true,
+      mediaImport: true,
+      timelineEditing: true,
+      videoRendering: ffmpeg.available && ffprobe.available && ffmpegCapabilities.available && encoders.libx264,
+      srtSubtitles: ffmpegCapabilities.available && filters.subtitles,
+      audioMixing: ffmpegCapabilities.available && filters.amix,
+      automaticSpeechRecognition: false,
+      textToSpeech: false,
+      nativeCapCutDraftExport: false,
+      reusableTemplates: true,
+      imageMotion: ffmpegCapabilities.available && filters.zoompan,
+      transitions: ffmpegCapabilities.available && filters.xfade && filters.acrossfade,
+      textOverlays: ffmpegCapabilities.available && filters.ass,
+    };
+    const missingFeatures = [];
+    if (!ffmpeg.available) missingFeatures.push('FFmpeg');
+    if (!ffprobe.available) missingFeatures.push('FFprobe');
+    if (!ffmpegCapabilities.available) {
+      missingFeatures.push('FFmpeg 编码器和滤镜列表');
+    } else {
+      if (!encoders.libx264) missingFeatures.push('libx264 编码器');
+      if (!filters.subtitles) missingFeatures.push('subtitles 滤镜（libass）');
+      if (!filters.amix) missingFeatures.push('amix 音频混合滤镜');
+      if (!filters.zoompan) missingFeatures.push('zoompan 镜头动画滤镜');
+      if (!filters.xfade) missingFeatures.push('xfade 视频转场滤镜');
+      if (!filters.acrossfade) missingFeatures.push('acrossfade 音频转场滤镜');
+      if (!filters.ass) missingFeatures.push('ass 动态文字滤镜（libass）');
+    }
+    const requiredCapabilities = ['videoRendering', 'srtSubtitles', 'audioMixing', 'imageMotion', 'transitions', 'textOverlays'];
+    const ready = requiredCapabilities.every((name) => capabilities[name]);
     return {
       name: 'Video Studio',
       version: '0.2.0',
-      ready: ffmpeg.available && ffprobe.available,
+      ready,
+      basicReady: capabilities.videoRendering,
+      missingFeatures,
       ffmpeg,
       ffprobe,
+      ffmpegCapabilities,
       dataDir: store.dataDir,
       allowedRoots: store.allowedRoots,
       workbenchUrl: `http://127.0.0.1:${port}`,
-      capabilities: {
-        projectManagement: true,
-        mediaImport: true,
-        timelineEditing: true,
-        videoRendering: ffmpeg.available && ffprobe.available,
-        srtSubtitles: true,
-        audioMixing: true,
-        automaticSpeechRecognition: false,
-        textToSpeech: false,
-        nativeCapCutDraftExport: false,
-        reusableTemplates: true,
-        imageMotion: true,
-        transitions: true,
-        textOverlays: true,
-      },
+      capabilities,
     };
   }
 

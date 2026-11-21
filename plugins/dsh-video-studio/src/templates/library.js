@@ -59,12 +59,12 @@ export async function saveTemplateFromProject(dataDir, project, { name, descript
   const template = {
     id: id('tpl'),
     kind: 'saved',
-    version: 1,
+    version: 2,
     name: name.trim().slice(0, 80),
     description: String(description).slice(0, 500),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    output: { ...project.output },
+    referenceCanvas: { width: project.output.width, height: project.output.height },
     clips: clips.map((clip) => ({
       duration: clip.duration,
       fit: clip.fit ?? 'crop',
@@ -79,7 +79,23 @@ export async function saveTemplateFromProject(dataDir, project, { name, descript
   return templateSummary(template, false);
 }
 
-export function compileTemplate(template, { assetIds, title, durationPerImage } = {}) {
+function scaleOverlayFonts(overlays, template, targetOutput) {
+  const referenceCanvas = template.referenceCanvas ?? template.output;
+  const referenceHeight = Number(referenceCanvas?.height);
+  const targetHeight = Number(targetOutput?.height);
+  if (!Number.isFinite(referenceHeight) || referenceHeight <= 0 || !Number.isFinite(targetHeight) || targetHeight <= 0) {
+    return overlays;
+  }
+  const scale = targetHeight / referenceHeight;
+  return overlays.map((overlay) => {
+    const originalSize = Number(overlay.fontSize ?? 56);
+    if (!Number.isFinite(originalSize)) return overlay;
+    const fontSize = Math.max(20, Math.min(120, Math.round(originalSize * scale)));
+    return { ...overlay, fontSize };
+  });
+}
+
+export function compileTemplate(template, { assetIds, title, durationPerImage, targetOutput } = {}) {
   if (!Array.isArray(assetIds) || assetIds.some((item) => typeof item !== 'string' || !item)) {
     throw new Error('assetIds 必须是已导入项目的素材 ID 数组。');
   }
@@ -117,5 +133,5 @@ export function compileTemplate(template, { assetIds, title, durationPerImage } 
     transitions = template.transitions ?? [];
     overlays = template.overlays ?? [];
   }
-  return { clips, transitions, overlays };
+  return { clips, transitions, overlays: scaleOverlayFonts(overlays, template, targetOutput) };
 }

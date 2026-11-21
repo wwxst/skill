@@ -33,7 +33,7 @@ export function normalizeTransitions(value, clips) {
   if (source.length !== clips.length - 1) {
     throw new Error(`transitions 数量必须是片段数量减一（当前需要 ${clips.length - 1} 个）。`);
   }
-  return source.map((item, index) => {
+  const normalized = source.map((item, index) => {
     const type = item?.type ?? 'cut';
     if (!TRANSITION_TYPES.includes(type)) throw new Error(`第 ${index + 1} 个转场类型不支持：${type}。`);
     const duration = finite(item?.duration ?? (type === 'cut' ? 0 : 0.5), `第 ${index + 1} 个转场时长`, 0, 2);
@@ -43,6 +43,15 @@ export function normalizeTransitions(value, clips) {
     }
     return { type, duration };
   });
+
+  // Two transitions around the same middle clip must not overlap on the output timeline.
+  for (let index = 1; index < normalized.length; index += 1) {
+    const combinedDuration = normalized[index - 1].duration + normalized[index].duration;
+    if (combinedDuration > clips[index].duration + 1e-9) {
+      throw new Error(`第 ${index + 1} 个片段两侧转场时长总和不能超过该片段时长。`);
+    }
+  }
+  return normalized;
 }
 
 export function timelineDuration(clips, transitions = []) {

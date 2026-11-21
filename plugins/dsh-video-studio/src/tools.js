@@ -29,7 +29,7 @@ export function createToolDefinitions(engine) {
   return [
     definition(
       'video_studio_status',
-      '检查 Video Studio 是否正常运行，返回 FFmpeg/FFprobe 状态、素材允许目录、工作台地址和当前已实现能力。制作前先调用。',
+      '检查 Video Studio 是否正常运行，返回 FFmpeg/FFprobe 状态、libx264 与关键滤镜探测结果、缺失依赖、素材允许目录和工作台地址。制作前先调用。',
       {}, [],
       () => engine.status(), true,
     ),
@@ -66,7 +66,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_template_save',
-      '把当前项目的图片时间线保存成可跨项目复用的模板。保存前必须先读取项目 revision。',
+      '把当前项目的图片时间线和视觉样式保存成可跨项目复用的模板。模板不保存或覆盖目标项目的画幅、分辨率和 FPS；文字字号会按目标画布高度自动缩放。保存前必须先读取项目 revision。',
       {
         projectId: string('项目 ID'),
         expectedRevision: number('video_project_get 返回的当前 revision'),
@@ -77,7 +77,7 @@ export function createToolDefinitions(engine) {
     ),
     definition(
       'video_template_apply',
-      '把模板应用到当前项目。assetIds 按模板槽位顺序提供本项目已导入的图片素材 ID；内置电影感模板支持 2–12 张图片。',
+      '把模板应用到当前项目。assetIds 按模板槽位顺序提供本项目已导入的图片素材 ID；内置电影感模板支持 2–12 张图片。应用后保留当前项目的画幅、分辨率和 FPS，保存模板中的文字字号按目标画布高度自动缩放。',
       {
         projectId: string('项目 ID'),
         expectedRevision: number('video_project_get 返回的当前 revision'),

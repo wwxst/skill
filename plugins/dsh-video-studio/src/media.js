@@ -101,3 +101,51 @@ export async function checkBinary(binary, args = ['-version']) {
     return { available: false, error: error.message, code: error.code ?? 'UNKNOWN' };
   }
 }
+
+export function parseFfmpegCapabilities(filtersOutput, encodersOutput) {
+  const listedNames = (output) => new Set(
+    String(output ?? '')
+      .split(/\r?\n/)
+      .map((line) => line.trim().split(/\s+/)[1])
+      .filter(Boolean),
+  );
+  const filters = listedNames(filtersOutput);
+  const encoders = listedNames(encodersOutput);
+  return {
+    filters: {
+      ass: filters.has('ass'),
+      subtitles: filters.has('subtitles'),
+      xfade: filters.has('xfade'),
+      zoompan: filters.has('zoompan'),
+      acrossfade: filters.has('acrossfade'),
+      amix: filters.has('amix'),
+    },
+    encoders: {
+      libx264: encoders.has('libx264'),
+    },
+  };
+}
+
+export async function checkFfmpegCapabilities(binary) {
+  try {
+    const [filterResult, encoderResult] = await Promise.all([
+      runProcess(binary, ['-hide_banner', '-filters'], { timeoutMs: 5000 }),
+      runProcess(binary, ['-hide_banner', '-encoders'], { timeoutMs: 5000 }),
+    ]);
+    return {
+      available: true,
+      ...parseFfmpegCapabilities(
+        `${filterResult.stdout}\n${filterResult.stderr}`,
+        `${encoderResult.stdout}\n${encoderResult.stderr}`,
+      ),
+    };
+  } catch (error) {
+    return {
+      available: false,
+      error: error.message,
+      code: error.code ?? 'UNKNOWN',
+      filters: { ass: false, subtitles: false, xfade: false, zoompan: false, acrossfade: false, amix: false },
+      encoders: { libx264: false },
+    };
+  }
+}
