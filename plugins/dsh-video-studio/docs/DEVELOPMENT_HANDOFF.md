@@ -50,6 +50,8 @@ Video Studio 是给 DeepSeek Harness 使用的本地视频制作插件。Harness
 
 ## 第三方授权与实机验收前准备
 
+一次性实机验收步骤与验收记录表见 [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md)。
+
 以下项目代码已完成，但需要用户自己的凭据/平台权限才能实测：
 
 1. Pixabay：`DSH_VIDEO_STUDIO_PIXABAY_API_KEY`
