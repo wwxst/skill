@@ -500,6 +500,7 @@ export function createToolDefinitions(engine) {
 export const videoStudioInstructions = `你已连接 Video Studio 本地视频制作插件（0.5.0）。
 制作前先调用 video_studio_status。检查 FFmpeg/FFprobe、libx264、libass 和关键滤镜；Pixabay 和图片生成是可选外部服务，状态会显示是否配置，不能因为未配置就误报本地剪辑引擎不可用。
 标准制作流程：video_project_create → video_asset_import / video_library_import → video_project_get → 规划镜头 → 搜索或生成素材 → video_storyboard_create → 为每个镜头绑定素材 → video_storyboard_apply → 检查时间线和字幕 → video_render → video_job_status 轮询到终态 → video_quality_check → video_output_list。
+CapCut 拉新项目必须优先使用仓库 Skill `capcut-launch-tiktok` 的文案结构、锚点前置、CTA 和视频简介规则；项目号（acquisition）与中视频号（mid-video）分开规划、分开统计，不要混用目标和指标。
 镜头规划由当前对话 AI 根据用户选题、脚本、目标账号和时长生成；每个镜头写清画面描述、素材搜索词、时长、旁白、字幕和转场，再保存为 storyboard。Pixabay 搜索结果必须保留来源页面和作者信息；下载时记录 Pixabay Content License 和来源。Pixabay API 有速率限制，搜索结果缓存 24 小时，不要自动批量抓取或系统性下载。
 图片生成可能产生费用。没有用户明确同意时，绝不能调用付费生成；只有用户确认后才能把 confirmCost 设置为 true。生成图片会自动进入本地素材库并导入项目。素材库按 SHA-256 去重，可用标签管理和跨项目复用。
 项目素材只能从允许目录导入。默认允许当前工作目录、用户主目录和 Video Studio 数据目录；遇到 ASSET_PATH_NOT_ALLOWED 时提示用户配置 allowedRoots，不要绕过安全限制。

@@ -75,6 +75,10 @@ dsh plugin --profile web add "link:D:\Apps\dsh-video-studio"
 
 默认地址：`http://127.0.0.1:4174`。工作台只能从运行 Harness 的这台电脑访问。
 
+## TikTok 内容 Skill 与数据连接
+
+本仓库包含 `skills/capcut-launch-tiktok/SKILL.md`。制作 CapCut 拉新项目时，应在 DeepSeek Harness 中启用该 Skill，并按其锚点前置、短句字幕、教程型结构、搜索简介和视觉安全区规则生成镜头与字幕。Video Studio 负责执行素材导入、镜头时间线、字幕、渲染和质量检查；内容策略仍由 Harness 当前模型与 Skill 提供。中视频账号使用独立的流量目标，不套用 CapCut CPS 拉新 CTA。
+
 ## TikTok 数据连接
 
 1. 在 TikTok for Developers 创建应用，申请 Login Kit 和 Display API，并取得 `user.info.basic`、`video.list` 权限。
