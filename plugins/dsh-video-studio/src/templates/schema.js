@@ -55,7 +55,8 @@ export function normalizeOverlays(value, duration) {
   const source = value ?? [];
   if (!Array.isArray(source) || source.length > 20) throw new Error('overlays 必须是数组，且最多 20 条。');
   return source.map((item, index) => {
-    const text = String(item?.text ?? '').replace(/[{}\\]/g, '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+    if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error(`第 ${index + 1} 条文字必须是对象。`);
+    const text = String(item.text ?? '').replace(/[{}\\]/g, '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
     if (!text) throw new Error(`第 ${index + 1} 条文字不能为空。`);
     const start = finite(item.start ?? 0, `第 ${index + 1} 条文字开始时间`, 0, duration);
     const end = finite(item.end ?? duration, `第 ${index + 1} 条文字结束时间`, 0, duration);
