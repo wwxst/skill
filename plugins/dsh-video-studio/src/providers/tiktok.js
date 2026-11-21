@@ -9,7 +9,7 @@ const VIDEO_FIELDS = 'id,create_time,share_url,video_description,title,duration,
 
 function normalizeVideo(video) {
   const id = String(video.id || '');
-  if (!/^\\d{8,30}$/.test(id)) return null;
+  if (!/^\d{8,30}$/.test(id)) return null;
   const count = (value) => Number.isSafeInteger(Number(value)) && Number(value) >= 0 ? Number(value) : null;
   const fields = { views: 'view_count', likes: 'like_count', comments: 'comment_count', shares: 'share_count' };
   return {

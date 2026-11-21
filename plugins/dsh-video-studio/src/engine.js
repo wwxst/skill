@@ -606,7 +606,7 @@ export async function createEngine(config = {}) {
     if (!Array.isArray(mappings) || mappings.length < 1 || mappings.length > 200) throw new VideoStudioError('TikTok 同步必须提供 1–200 条作品与项目的对应关系。', 'INVALID_ARGUMENT');
     const seen = new Set();
     for (const mapping of mappings) {
-      if (!mapping || !/^\\d{8,30}$/.test(String(mapping.videoId || ''))) throw new VideoStudioError('每条映射都必须提供有效的 TikTok videoId。', 'INVALID_ARGUMENT');
+      if (!mapping || !/^\d{8,30}$/.test(String(mapping.videoId || ''))) throw new VideoStudioError('每条映射都必须提供有效的 TikTok videoId。', 'INVALID_ARGUMENT');
       if (seen.has(String(mapping.videoId))) throw new VideoStudioError('同一批次不能重复映射同一个 TikTok videoId。', 'INVALID_ARGUMENT');
       seen.add(String(mapping.videoId));
       if (!['acquisition', 'mid-video', 'other'].includes(mapping.accountType || 'acquisition')) throw new VideoStudioError('账号类型无效。', 'INVALID_ARGUMENT');
