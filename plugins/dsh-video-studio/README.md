@@ -136,7 +136,7 @@ $env:DSH_VIDEO_STUDIO_HOME = "D:\VideoStudioData"
 - 插件卸载时会取消正在执行的渲染任务。
 - 进程重启后，未完成的任务会标记为 `interrupted`，不会假装自动续跑。
 
-后续能力规划见 [ROADMAP](docs/ROADMAP.md)。跨对话开发进度和继续工作说明见 [DEVELOPMENT_HANDOFF](docs/DEVELOPMENT_HANDOFF.md)。
+后续能力规划见 [ROADMAP](docs/ROADMAP.md)。跨对话开发进度和继续工作说明见 [DEVELOPMENT_HANDOFF](docs/DEVELOPMENT_HANDOFF.md)。最近一次代码审查结论见 [CODE_REVIEW_2026-11-21](docs/CODE_REVIEW_2026-11-21.md)。
 
 ## 开发与验证
 
