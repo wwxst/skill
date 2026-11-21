@@ -4,6 +4,7 @@ import { access, copyFile, lstat, realpath, readdir, stat } from 'node:fs/promis
 import { VideoStudioError } from './errors.js';
 import { ensureDir, id, isInside, readJson, safeSegment, writeJsonAtomic, assertId } from './util.js';
 import { probeMedia } from './media.js';
+import { normalizeMotion, normalizeTransitions, normalizeOverlays, timelineDuration } from './templates/schema.js';
 
 const ASPECTS = {
   '9:16': [1080, 1920],
@@ -111,7 +112,7 @@ export function createStore(config = {}) {
       revision: 1,
       output: { aspectRatio, width: outputWidth, height: outputHeight, fps },
       assets: [],
-      timeline: { clips: [], musicAssetId: null, voiceoverAssetId: null, originalAudioVolume: 1, musicVolume: 0.18, voiceoverVolume: 1, subtitles: null },
+      timeline: { clips: [], transitions: [], overlays: [], musicAssetId: null, voiceoverAssetId: null, originalAudioVolume: 1, musicVolume: 0.18, voiceoverVolume: 1, subtitles: null },
       outputs: [],
     };
     await saveProject(project);
@@ -186,7 +187,7 @@ export function createStore(config = {}) {
   }
 
   async function updateTimeline(args) {
-    const { projectId, expectedRevision, clips, musicAssetId = null, voiceoverAssetId = null, originalAudioVolume = 1, musicVolume = 0.18, voiceoverVolume = 1, fit = 'crop' } = args;
+    const { projectId, expectedRevision, clips, transitions = [], overlays = [], musicAssetId = null, voiceoverAssetId = null, originalAudioVolume = 1, musicVolume = 0.18, voiceoverVolume = 1, fit = 'crop' } = args;
     return withProjectLock(projectId, async () => {
     const project = await readProject(projectId);
     if (expectedRevision !== project.revision) throw new VideoStudioError(`项目版本已变化。你提交的是 revision ${expectedRevision}，当前版本是 ${project.revision}。请重新读取项目后再修改。`, 'REVISION_CONFLICT');
@@ -212,8 +213,21 @@ export function createStore(config = {}) {
         if (asset.media?.duration && sourceOut > asset.media.duration + 0.05) throw new VideoStudioError(`第 ${index + 1} 个片段 sourceOut 超出了素材时长。`, 'INVALID_ARGUMENT');
         duration = (sourceOut - sourceIn) / speed;
       }
-      return { assetId: asset.id, sourceIn, sourceOut, speed, duration, fit };
+      const clipFit = clip.fit ?? fit;
+      if (!['crop', 'contain'].includes(clipFit)) throw new VideoStudioError('第 ' + (index + 1) + ' 个片段 fit 只能是 crop 或 contain。', 'INVALID_ARGUMENT');
+      let motion;
+      try { motion = normalizeMotion(clip.motion, asset.role, index); }
+      catch (error) { throw new VideoStudioError(error.message, 'INVALID_ARGUMENT'); }
+      return { assetId: asset.id, sourceIn, sourceOut, speed, duration, fit: clipFit, motion };
     });
+    let normalizedTransitions;
+    let normalizedOverlays;
+    try {
+      normalizedTransitions = normalizeTransitions(transitions, normalizedClips);
+      normalizedOverlays = normalizeOverlays(overlays, timelineDuration(normalizedClips, normalizedTransitions));
+    } catch (error) {
+      throw new VideoStudioError(error.message, 'INVALID_ARGUMENT');
+    }
     for (const [assetId, role, label] of [[musicAssetId, 'audio', '背景音乐'], [voiceoverAssetId, 'audio', '旁白']]) {
       if (assetId !== null && assetId !== undefined && (!byId.has(assetId) || byId.get(assetId).role !== role)) {
         throw new VideoStudioError(`${label}必须引用本项目中已导入的音频素材。`, 'INVALID_AUDIO_ASSET');
@@ -225,6 +239,8 @@ export function createStore(config = {}) {
     project.timeline = {
       ...project.timeline,
       clips: normalizedClips,
+      transitions: normalizedTransitions,
+      overlays: normalizedOverlays,
       musicAssetId: musicAssetId || null,
       voiceoverAssetId: voiceoverAssetId || null,
       originalAudioVolume,
@@ -234,7 +250,7 @@ export function createStore(config = {}) {
     };
     project.revision += 1;
     await saveProject(project);
-    return { projectId, revision: project.revision, clipCount: normalizedClips.length, duration: normalizedClips.reduce((sum, clip) => sum + clip.duration, 0), timeline: project.timeline };
+    return { projectId, revision: project.revision, clipCount: normalizedClips.length, duration: timelineDuration(normalizedClips, normalizedTransitions), timeline: project.timeline };
     });
   }
 
