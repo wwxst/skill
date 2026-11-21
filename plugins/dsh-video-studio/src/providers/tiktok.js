@@ -1,4 +1,4 @@
-import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { readJson } from '../util.js';
@@ -54,6 +54,7 @@ export class TikTokProvider {
     this.clientSecret = String(clientSecret ?? process.env.DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET ?? '').trim();
     this.accounts = new Map();
     this.refreshPromises = new Map();
+    this.saveChain = Promise.resolve();
     this.fetchImpl = fetchImpl;
     const initial = emptyAccount();
     initial.accessToken = String(accessToken ?? process.env.DSH_VIDEO_STUDIO_TIKTOK_ACCESS_TOKEN ?? '').trim();
@@ -128,11 +129,20 @@ export class TikTokProvider {
     const account = this.getAccount(key);
     account.openId = payload?.open_id ?? account.openId ?? null;
     account.scope = payload?.scope ?? account.scope ?? null;
-    await mkdir(path.dirname(this.tokenPath), { recursive: true });
-    const temporary = this.tokenPath + '.' + process.pid + '.tmp';
-    const accounts = Object.fromEntries(this.accounts.entries());
-    await writeFile(temporary, JSON.stringify({ version: 2, accounts, updatedAt: new Date().toISOString() }, null, 2), { encoding: 'utf8', mode: 0o600, flag: 'w' });
-    await rename(temporary, this.tokenPath);
+    const operation = this.saveChain.catch(() => {}).then(async () => {
+      await mkdir(path.dirname(this.tokenPath), { recursive: true });
+      const temporary = this.tokenPath + '.' + process.pid + '.' + randomBytes(8).toString('hex') + '.tmp';
+      const accounts = Object.fromEntries([...this.accounts.entries()].map(([id, value]) => [id, { ...value }]));
+      try {
+        await writeFile(temporary, JSON.stringify({ version: 2, accounts, updatedAt: new Date().toISOString() }, null, 2), { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+        await rename(temporary, this.tokenPath);
+      } catch (error) {
+        await rm(temporary, { force: true }).catch(() => {});
+        throw error;
+      }
+    });
+    this.saveChain = operation;
+    return operation;
   }
 
   async createAuthorizationUrl({ redirectUri, accountId = 'default' } = {}) {

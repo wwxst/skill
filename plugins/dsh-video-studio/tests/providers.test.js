@@ -261,8 +261,10 @@ test('keeps multiple named TikTok accounts and OAuth states isolated', async (t)
     },
   });
   await provider.initialize();
-  const projectAuth = await provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback', accountId: 'capcut-project-01' });
-  const midVideoAuth = await provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback', accountId: 'mid-video-01' });
+  const [projectAuth, midVideoAuth] = await Promise.all([
+    provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback', accountId: 'capcut-project-01' }),
+    provider.createAuthorizationUrl({ redirectUri: 'https://example.com/tiktok/callback', accountId: 'mid-video-01' }),
+  ]);
   assert.notEqual(projectAuth.state, midVideoAuth.state);
 
   await assert.rejects(
