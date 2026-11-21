@@ -159,8 +159,8 @@ AI 需要按下面流程工作：
 | `DSH_VIDEO_STUDIO_IMAGE_MODEL` | 图片生成模型名称 |
 | `DSH_VIDEO_STUDIO_TIKTOK_CLIENT_KEY` | TikTok 开发者应用 Client Key |
 | `DSH_VIDEO_STUDIO_TIKTOK_CLIENT_SECRET` | TikTok 开发者应用 Client Secret |
-| `DSH_VIDEO_STUDIO_TIKTOK_ACCESS_TOKEN` | TikTok OAuth 用户 Access Token |
-| `DSH_VIDEO_STUDIO_TIKTOK_REFRESH_TOKEN` | TikTok OAuth Refresh Token；轮换后保存在本地 integrations/tiktok-token.json |
+| `DSH_VIDEO_STUDIO_TIKTOK_ACCESS_TOKEN` | TikTok OAuth 用户 Access Token，仅用于默认账号 `default` |
+| `DSH_VIDEO_STUDIO_TIKTOK_REFRESH_TOKEN` | 默认账号的 TikTok OAuth Refresh Token；轮换后保存在本地 integrations/tiktok-token.json。其他账号通过 OAuth 工具按 accountId 授权 |
 
 例如 Windows：
 
